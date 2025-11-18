@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
 import { useApp } from '@/contexts/AppContext';
-import { VendaService } from '@/service/vendaService';
 import { RelatorioService } from '@/service/relatorioService';
+import { VendaService } from '@/service/vendaService';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Card, ProgressBar, Text } from 'react-native-paper';
 
 export default function DashboardScreen() {
   const { state, dispatch } = useApp();

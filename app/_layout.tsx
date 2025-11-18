@@ -1,11 +1,11 @@
-import { initDatabase } from '@/database/db';
+import { AppProvider } from '@/contexts/AppContext';
+import { initDatabase } from '@/database/dbWeb';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
-import { AppProvider } from '@/contexts/AppContext';
 import { Provider as PaperProvider } from 'react-native-paper';
+import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 

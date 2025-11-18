@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Text, Button, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { RelatorioService } from '@/service/relatorioService';
 import { RelatorioResponse } from '@/types/Relatorio';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Card, SegmentedButtons, Text } from 'react-native-paper';
 
 export default function RelatoriosScreen() {
   const [loading, setLoading] = useState(true);

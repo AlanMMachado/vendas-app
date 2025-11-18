@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, ActivityIndicator, FAB, List } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { RemessaService } from '@/service/remessaService';
 import { Remessa } from '@/types/Remessa';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Card, FAB, Text } from 'react-native-paper';
 
 export default function RemessasScreen() {
   const router = useRouter();
