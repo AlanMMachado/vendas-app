@@ -83,17 +83,10 @@ export default function NovaVendaScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   if (produtos.length === 0) {
     return (
       <View style={styles.container}>
+        <Header title="Nova Venda" subtitle="Registre uma venda rapidamente" />
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📦</Text>
           <Text style={styles.emptyText}>Nenhum produto disponível</Text>
@@ -112,8 +105,13 @@ export default function NovaVendaScreen() {
   return (
     <View style={styles.container}>
       <Header title="Nova Venda" subtitle="Registre uma venda rapidamente" />
-      <ScrollView>
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView>
+          <View style={styles.content}>
 
         {/* Produto */}
         <View style={styles.section}>
@@ -301,8 +299,9 @@ export default function NovaVendaScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      )}
     </View>
   );
 }
@@ -315,8 +314,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   emptyState: {
     flex: 1,

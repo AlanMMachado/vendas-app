@@ -86,14 +86,6 @@ export default function RemessasScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <Header 
@@ -101,10 +93,15 @@ export default function RemessasScreen() {
         subtitle={`${remessas.length} ${remessas.length === 1 ? 'remessa' : 'remessas'}`}
       />
 
-      <ScrollView 
-        style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
         {remessas.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📦</Text>
@@ -208,6 +205,7 @@ export default function RemessasScreen() {
           ))
         )}
       </ScrollView>
+      )}
       
       <TouchableOpacity
         style={styles.fab}
@@ -241,8 +239,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   emptyState: {
     backgroundColor: '#ffffff',

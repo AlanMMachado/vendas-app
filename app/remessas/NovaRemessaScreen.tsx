@@ -9,6 +9,7 @@ import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
 interface ProdutoForm {
   tipo: string;
+  tipoCustomizado: string;
   sabor: string;
   quantidade_inicial: string;
 }
@@ -23,10 +24,13 @@ export default function NovaRemessaScreen() {
   ]);
 
   const adicionarProduto = () => {
-    setProdutos([...produtos, { tipo: '', sabor: '', quantidade_inicial: '' }]);
-  };
-
-  const removerProduto = (index: number) => {
+    setProdutos([...produtos, { 
+      tipo: '', 
+      tipoCustomizado: '',
+      sabor: '', 
+      quantidade_inicial: '' 
+    }]);
+  };  const removerProduto = (index: number) => {
     if (produtos.length > 1) {
       setProdutos(produtos.filter((_, i) => i !== index));
     }
@@ -39,9 +43,10 @@ export default function NovaRemessaScreen() {
   };
 
   const handleSubmit = async () => {
-    const produtosValidos = produtos.filter(p => 
-      p.tipo.trim() && p.sabor.trim() && p.quantidade_inicial.trim() && parseInt(p.quantidade_inicial) > 0
-    );
+    const produtosValidos = produtos.filter(p => {
+      const tipoValido = p.tipo.trim() && (p.tipo !== 'outro' || p.tipoCustomizado.trim());
+      return tipoValido && p.sabor.trim() && p.quantidade_inicial.trim() && parseInt(p.quantidade_inicial) > 0;
+    });
 
     if (produtosValidos.length === 0) {
       alert('Adicione pelo menos um produto válido');
@@ -54,11 +59,16 @@ export default function NovaRemessaScreen() {
       const remessaData: RemessaCreateParams = {
         data: new Date().toISOString().split('T')[0],
         observacao: observacao.trim() || undefined,
-        produtos: produtosValidos.map(p => ({
-          tipo: p.tipo.trim(),
-          sabor: p.sabor.trim(),
-          quantidade_inicial: parseInt(p.quantidade_inicial)
-        }))
+        produtos: produtosValidos.map(p => {
+          const tipoFinal = p.tipo === 'outro' && p.tipoCustomizado.trim() 
+            ? p.tipoCustomizado.trim().charAt(0).toUpperCase() + p.tipoCustomizado.trim().slice(1).toLowerCase()
+            : p.tipo;
+          return {
+            tipo: tipoFinal,
+            sabor: p.sabor.trim(),
+            quantidade_inicial: parseInt(p.quantidade_inicial)
+          };
+        })
       };
 
       await RemessaService.create(remessaData);
@@ -102,35 +112,78 @@ export default function NovaRemessaScreen() {
                 <Text style={styles.label}>Tipo *</Text>
                 <View style={styles.tipoButtons}>
                   <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'trufa')}
+                    onPress={() => atualizarProduto(index, 'tipo', 'Trufa')}
                     style={[
                       styles.tipoButton,
-                      produto.tipo === 'trufa' && styles.tipoButtonActive
+                      produto.tipo === 'Trufa' && styles.tipoButtonActive
                     ]}
                   >
                     <Text style={[
                       styles.tipoButtonText,
-                      produto.tipo === 'trufa' && styles.tipoButtonTextActive
+                      produto.tipo === 'Trufa' && styles.tipoButtonTextActive
                     ]}>
                       Trufa
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'sobremesa')}
+                    onPress={() => atualizarProduto(index, 'tipo', 'Surpresa')}
                     style={[
                       styles.tipoButton,
-                      produto.tipo === 'sobremesa' && styles.tipoButtonActive
+                      produto.tipo === 'Surpresa' && styles.tipoButtonActive
                     ]}
                   >
                     <Text style={[
                       styles.tipoButtonText,
-                      produto.tipo === 'sobremesa' && styles.tipoButtonTextActive
+                      produto.tipo === 'Surpresa' && styles.tipoButtonTextActive
                     ]}>
-                      Sobremesa
+                      Surpresa
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => atualizarProduto(index, 'tipo', 'Torta')}
+                    style={[
+                      styles.tipoButton,
+                      produto.tipo === 'Torta' && styles.tipoButtonActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.tipoButtonText,
+                      produto.tipo === 'Torta' && styles.tipoButtonTextActive
+                    ]}>
+                      Torta
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => atualizarProduto(index, 'tipo', 'outro')}
+                    style={[
+                      styles.tipoButton,
+                      produto.tipo === 'outro' && styles.tipoButtonActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.tipoButtonText,
+                      produto.tipo === 'outro' && styles.tipoButtonTextActive
+                    ]}>
+                      Outro
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Campo customizado quando "Outro" é selecionado */}
+                {produto.tipo === 'outro' && (
+                  <TextInput
+                    value={produto.tipoCustomizado}
+                    onChangeText={(text) => atualizarProduto(index, 'tipoCustomizado', text)}
+                    style={[styles.input, styles.customTipoInput]}
+                    mode="outlined"
+                    placeholder="Digite o tipo do produto..."
+                    outlineColor="#d1d5db"
+                    activeOutlineColor="#2563eb"
+                  />
+                )}
               </View>
 
               {/* Sabor */}
@@ -316,10 +369,12 @@ const styles = StyleSheet.create({
   },
   tipoButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   tipoButton: {
     flex: 1,
+    minWidth: '45%',
     paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 8,
@@ -338,6 +393,9 @@ const styles = StyleSheet.create({
   },
   tipoButtonTextActive: {
     color: '#ffffff',
+  },
+  customTipoInput: {
+    marginTop: 8,
   },
   addButton: {
     backgroundColor: '#ffffff',

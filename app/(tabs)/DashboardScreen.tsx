@@ -75,24 +75,21 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <Header 
         title="Dashboard" 
         subtitle={format(new Date(), "dd 'de' MMMM", { locale: ptBR })}
       />
-      <ScrollView 
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView 
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.content}>
         {/* KPIs */}
         <View style={styles.kpiContainer}>
           <View style={styles.kpiCard}>
@@ -214,8 +211,9 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      )}
     </View>
   );
 }
@@ -228,8 +226,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   kpiContainer: {
     flexDirection: 'row',

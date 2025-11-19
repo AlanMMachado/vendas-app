@@ -8,6 +8,7 @@ import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 interface ProdutoForm {
   id: number;
   tipo: string;
+  tipoCustomizado: string;
   sabor: string;
   quantidade_inicial: string;
 }
@@ -33,12 +34,26 @@ export default function EditarRemessaScreen() {
       const remessa = await RemessaService.getById(parseInt(id));
       if (remessa) {
         setObservacao(remessa.observacao || '');
-        const produtosMapeados = remessa.produtos?.map(p => ({
-          id: p.id,
-          tipo: p.tipo,
-          sabor: p.sabor,
-          quantidade_inicial: p.quantidade_inicial.toString()
-        })) || [];
+        const produtosMapeados = remessa.produtos?.map(p => {
+          // Normalizar tipos existentes para capitalização correta
+          let tipoNormalizado = p.tipo;
+          if (p.tipo && p.tipo !== 'outro') {
+            // Mapear tipos antigos para novos
+            if (p.tipo.toLowerCase() === 'bolo') {
+              tipoNormalizado = 'Torta';
+            } else {
+              tipoNormalizado = p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1).toLowerCase();
+            }
+          }
+          
+          return {
+            id: p.id,
+            tipo: tipoNormalizado,
+            tipoCustomizado: '',
+            sabor: p.sabor,
+            quantidade_inicial: p.quantidade_inicial.toString()
+          };
+        }) || [];
         setProdutos(produtosMapeados);
         setProdutosOriginais(JSON.parse(JSON.stringify(produtosMapeados))); // Deep copy
       }
@@ -53,6 +68,7 @@ export default function EditarRemessaScreen() {
     setProdutos([...produtos, { 
       id: 0, // ID temporário
       tipo: '', 
+      tipoCustomizado: '',
       sabor: '', 
       quantidade_inicial: '' 
     }]);
@@ -64,16 +80,17 @@ export default function EditarRemessaScreen() {
     }
   };
 
-  const atualizarProduto = (index: number, campo: 'tipo' | 'sabor' | 'quantidade_inicial', valor: string) => {
+  const atualizarProduto = (index: number, campo: 'tipo' | 'tipoCustomizado' | 'sabor' | 'quantidade_inicial', valor: string) => {
     const novosProdutos = [...produtos];
     novosProdutos[index][campo] = valor;
     setProdutos(novosProdutos);
   };
 
   const handleSubmit = async () => {
-    const produtosValidos = produtos.filter(p => 
-      p.tipo.trim() && p.sabor.trim() && p.quantidade_inicial.trim() && parseInt(p.quantidade_inicial) > 0
-    );
+    const produtosValidos = produtos.filter(p => {
+      const tipoValido = p.tipo.trim() && (p.tipo !== 'outro' || p.tipoCustomizado.trim());
+      return tipoValido && p.sabor.trim() && p.quantidade_inicial.trim() && parseInt(p.quantidade_inicial) > 0;
+    });
 
     if (produtosValidos.length === 0) {
       alert('Adicione pelo menos um produto válido');
@@ -100,17 +117,21 @@ export default function EditarRemessaScreen() {
 
       // Update products
       for (const produto of produtosValidos) {
+        const tipoFinal = produto.tipo === 'outro' && produto.tipoCustomizado.trim() 
+          ? produto.tipoCustomizado.trim().charAt(0).toUpperCase() + produto.tipoCustomizado.trim().slice(1).toLowerCase()
+          : produto.tipo;
+
         if (produto.id && produto.id > 0) {
           // Update existing product
           await RemessaService.updateProduto(produto.id, {
-            tipo: produto.tipo.trim(),
+            tipo: tipoFinal,
             sabor: produto.sabor.trim(),
             quantidade_inicial: parseInt(produto.quantidade_inicial)
           });
         } else {
           // Add new product
           await RemessaService.addProduto(parseInt(id), {
-            tipo: produto.tipo.trim(),
+            tipo: tipoFinal,
             sabor: produto.sabor.trim(),
             quantidade_inicial: parseInt(produto.quantidade_inicial)
           });
@@ -126,19 +147,16 @@ export default function EditarRemessaScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <Header title="Editar Remessa" subtitle="Atualize os dados da remessa" />
-      <ScrollView>
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView>
+          <View style={styles.content}>
 
         {/* Produtos */}
         <View style={styles.produtosSection}>
@@ -163,37 +181,79 @@ export default function EditarRemessaScreen() {
               {/* Tipo */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Tipo *</Text>
-                <View style={styles.tipoButtons}>
+                <View style={styles.tipoButtonsGrid}>
                   <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'trufa')}
+                    onPress={() => atualizarProduto(index, 'tipo', 'Trufa')}
                     style={[
                       styles.tipoButton,
-                      produto.tipo === 'trufa' && styles.tipoButtonActive
+                      produto.tipo === 'Trufa' && styles.tipoButtonActive
                     ]}
                   >
                     <Text style={[
                       styles.tipoButtonText,
-                      produto.tipo === 'trufa' && styles.tipoButtonTextActive
+                      produto.tipo === 'Trufa' && styles.tipoButtonTextActive
                     ]}>
                       Trufa
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'sobremesa')}
+                    onPress={() => atualizarProduto(index, 'tipo', 'Surpresa')}
                     style={[
                       styles.tipoButton,
-                      produto.tipo === 'sobremesa' && styles.tipoButtonActive
+                      produto.tipo === 'Surpresa' && styles.tipoButtonActive
                     ]}
                   >
                     <Text style={[
                       styles.tipoButtonText,
-                      produto.tipo === 'sobremesa' && styles.tipoButtonTextActive
+                      produto.tipo === 'Surpresa' && styles.tipoButtonTextActive
                     ]}>
-                      Sobremesa
+                      Surpresa
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => atualizarProduto(index, 'tipo', 'Torta')}
+                    style={[
+                      styles.tipoButton,
+                      produto.tipo === 'Torta' && styles.tipoButtonActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.tipoButtonText,
+                      produto.tipo === 'Torta' && styles.tipoButtonTextActive
+                    ]}>
+                      Torta
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => atualizarProduto(index, 'tipo', 'outro')}
+                    style={[
+                      styles.tipoButton,
+                      produto.tipo === 'outro' && styles.tipoButtonActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.tipoButtonText,
+                      produto.tipo === 'outro' && styles.tipoButtonTextActive
+                    ]}>
+                      Outro
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {produto.tipo === 'outro' && (
+                  <TextInput
+                    value={produto.tipoCustomizado}
+                    onChangeText={(text) => atualizarProduto(index, 'tipoCustomizado', text)}
+                    style={styles.input}
+                    mode="outlined"
+                    placeholder="Digite o tipo personalizado"
+                    outlineColor="#d1d5db"
+                    activeOutlineColor="#2563eb"
+                  />
+                )}
               </View>
 
               {/* Sabor */}
@@ -274,8 +334,9 @@ export default function EditarRemessaScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      )}
     </View>
   );
 }
@@ -288,8 +349,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   section: {
     marginBottom: 20,
@@ -347,8 +411,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  tipoButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   tipoButton: {
     flex: 1,
+    minWidth: '48%',
     paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 8,

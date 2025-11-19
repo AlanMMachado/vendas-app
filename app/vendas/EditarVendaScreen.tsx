@@ -1,3 +1,4 @@
+import { db } from '@/database/db';
 import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
@@ -50,12 +51,28 @@ export default function EditarVendaScreen() {
       const remessasAtivas = await RemessaService.getAtivas();
       const todosProdutos: Produto[] = [];
 
-      for (const remessa of remessasAtivas) {
-        const produtosRemessa = await RemessaService.getProdutosByRemessaId(remessa.id);
+      // Primeiro, incluir produtos da remessa da venda atual
+      const produtoAtual = await db.getFirstAsync<{ remessa_id: number }>(
+        'SELECT remessa_id FROM produtos WHERE id = ?',
+        [vendaData.produto_id]
+      );
+      if (produtoAtual) {
+        const produtosRemessa = await RemessaService.getProdutosByRemessaId(produtoAtual.remessa_id);
         const produtosDisponiveis = produtosRemessa.filter(p =>
           p.quantidade_inicial - p.quantidade_vendida > 0 || p.id === vendaData.produto_id
         );
         todosProdutos.push(...produtosDisponiveis);
+      }
+
+      // Adicionar produtos de outras remessas ativas
+      for (const remessa of remessasAtivas) {
+        if (remessa.id !== produtoAtual?.remessa_id) {
+          const produtosRemessa = await RemessaService.getProdutosByRemessaId(remessa.id);
+          const produtosDisponiveis = produtosRemessa.filter(p =>
+            p.quantidade_inicial - p.quantidade_vendida > 0
+          );
+          todosProdutos.push(...produtosDisponiveis);
+        }
       }
 
       setProdutos(todosProdutos);
@@ -116,17 +133,10 @@ export default function EditarVendaScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   if (produtos.length === 0) {
     return (
       <View style={styles.container}>
+        <Header title="Editar Venda" subtitle="Atualize os dados da venda" />
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📦</Text>
           <Text style={styles.emptyText}>Nenhum produto disponível</Text>
@@ -145,8 +155,13 @@ export default function EditarVendaScreen() {
   return (
     <View style={styles.container}>
       <Header title="Editar Venda" subtitle="Atualize os dados da venda" />
-      <ScrollView>
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView>
+          <View style={styles.content}>
 
         {/* Produto */}
         <View style={styles.section}>
@@ -334,8 +349,9 @@ export default function EditarVendaScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      )}
     </View>
   );
 }
@@ -348,8 +364,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   emptyState: {
     flex: 1,

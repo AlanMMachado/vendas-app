@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Edit, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
 export default function DetalhesRemessaScreen() {
@@ -21,6 +21,7 @@ export default function DetalhesRemessaScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteVendaModalVisible, setDeleteVendaModalVisible] = useState(false);
   const [vendaToDelete, setVendaToDelete] = useState<Venda | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -47,6 +48,12 @@ export default function DetalhesRemessaScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await carregarDetalhes();
+    setRefreshing(false);
   };
 
   const handleDelete = async () => {
@@ -77,17 +84,13 @@ export default function DetalhesRemessaScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   if (!remessa) {
     return (
       <View style={styles.container}>
+        <Header 
+          title="Detalhes da Remessa" 
+          subtitle="Carregando..."
+        />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Remessa não encontrada</Text>
         </View>
@@ -139,6 +142,10 @@ export default function DetalhesRemessaScreen() {
       .reduce((total, venda) => total + venda.preco, 0);
   };
 
+  const getProdutoById = (produtoId: number) => {
+    return remessa?.produtos?.find(p => p.id === produtoId);
+  };
+
   return (
     <View style={styles.container}>
       <Header 
@@ -156,8 +163,17 @@ export default function DetalhesRemessaScreen() {
         }
       />
 
-      <ScrollView>
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.content}>
 
         {/* KPIs */}
         <View style={styles.kpisGrid}>
@@ -183,6 +199,12 @@ export default function DetalhesRemessaScreen() {
             <Text style={styles.kpiLabel}>Faturamento</Text>
             <Text style={styles.kpiValue}>R$ {getValorTotalVendido().toFixed(0)}</Text>
             <Text style={styles.kpiSubtext}>recebido</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>Valor Pendente</Text>
+            <Text style={styles.kpiValue}>R$ {getValorPendente().toFixed(0)}</Text>
+            <Text style={styles.kpiSubtext}>a receber</Text>
           </View>
         </View>
 
@@ -250,30 +272,33 @@ export default function DetalhesRemessaScreen() {
             </View>
 
             {/* Resumo Financeiro */}
-            <View style={styles.vendasResumo}>
-              <View style={styles.resumoItem}>
-                <Text style={styles.resumoLabel}>Recebido</Text>
-                <Text style={styles.resumoValor}>R$ {getValorTotalVendido().toFixed(2)}</Text>
-              </View>
-              {getValorPendente() > 0 && (
+            {getValorPendente() > 0 && (
+              <View style={styles.vendasResumo}>
                 <View style={styles.resumoItem}>
                   <Text style={styles.resumoLabel}>Pendente</Text>
                   <Text style={styles.resumoValor}>R$ {getValorPendente().toFixed(2)}</Text>
                 </View>
-              )}
-            </View>
+              </View>
+            )}
 
             {/* Lista de Vendas */}
             {vendas.slice(0, 10).map((venda) => (
               <View key={venda.id} style={styles.vendaItem}>
                 <View style={styles.vendaInfo}>
                   <Text style={styles.vendaCliente}>{venda.cliente}</Text>
+                  {(() => {
+                    const produto = getProdutoById(venda.produto_id);
+                    return produto ? (
+                      <Text style={styles.vendaProduto}>
+                        {produto.tipo} - {produto.sabor} ({venda.quantidade_vendida} unidade{venda.quantidade_vendida !== 1 ? 's' : ''})
+                      </Text>
+                    ) : null;
+                  })()}
                   <Text style={styles.vendaData}>
                     {formatDateTime(venda.data)}
                   </Text>
                 </View>
                 <View style={styles.vendaValores}>
-                  <Text style={styles.vendaPreco}>R$ {venda.preco.toFixed(2)}</Text>
                   <View style={[
                     styles.vendaStatus,
                     venda.status === 'OK' ? styles.statusPago : styles.statusPendente
@@ -282,7 +307,7 @@ export default function DetalhesRemessaScreen() {
                       styles.vendaStatusText,
                       venda.status === 'OK' ? styles.statusTextPago : styles.statusTextPendente
                     ]}>
-                      {venda.status === 'OK' ? 'Pago' : 'Pendente'}
+                      {venda.status === 'OK' ? 'PAGO' : 'PENDENTE'}
                     </Text>
                   </View>
                 </View>
@@ -320,30 +345,31 @@ export default function DetalhesRemessaScreen() {
         >
           <Text style={styles.novaVendaText}>+ Registrar Nova Venda</Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
-    
-    <ConfirmationModal
-      visible={deleteModalVisible}
-      title="Excluir Remessa"
-      message="Tem certeza que deseja excluir esta remessa? Esta ação não pode ser desfeita e todos os produtos e vendas associadas serão removidos."
-      onConfirm={handleDelete}
-      onCancel={() => setDeleteModalVisible(false)}
-      confirmText="Excluir"
-    />
+        </View>
+      </ScrollView>
+      )}
+      
+      <ConfirmationModal
+        visible={deleteModalVisible}
+        title="Excluir Remessa"
+        message="Tem certeza que deseja excluir esta remessa? Esta ação não pode ser desfeita e todos os produtos e vendas associadas serão removidos."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteModalVisible(false)}
+        confirmText="Excluir"
+      />
 
-    <ConfirmationModal
-      visible={deleteVendaModalVisible}
-      title="Excluir Venda"
-      message={`Tem certeza que deseja excluir a venda de ${vendaToDelete?.cliente}? Esta ação não pode ser desfeita.`}
-      onConfirm={handleDeleteVenda}
-      onCancel={() => {
-        setDeleteVendaModalVisible(false);
-        setVendaToDelete(null);
-      }}
-      confirmText="Excluir"
-    />
-  </View>
+      <ConfirmationModal
+        visible={deleteVendaModalVisible}
+        title="Excluir Venda"
+        message={`Tem certeza que deseja excluir a venda de ${vendaToDelete?.cliente}? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDeleteVenda}
+        onCancel={() => {
+          setDeleteVendaModalVisible(false);
+          setVendaToDelete(null);
+        }}
+        confirmText="Excluir"
+      />
+    </View>
   );
 }
 
@@ -355,8 +381,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   errorContainer: {
     flex: 1,
@@ -558,6 +587,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     marginBottom: 8,
+    position: 'relative',
   },
   vendaInfo: {
     flex: 1,
@@ -568,19 +598,21 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 2,
   },
+  vendaProduto: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+    fontWeight: '500',
+  },
   vendaData: {
     fontSize: 11,
     color: '#6b7280',
   },
   vendaValores: {
-    alignItems: 'flex-end',
-    marginRight: 12,
-  },
-  vendaPreco: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    alignItems: 'center',
   },
   vendaStatus: {
     paddingHorizontal: 10,
@@ -606,6 +638,9 @@ const styles = StyleSheet.create({
   vendaActions: {
     flexDirection: 'row',
     gap: 8,
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   editVendaButton: {
     width: 28,

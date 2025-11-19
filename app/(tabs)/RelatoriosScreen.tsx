@@ -33,17 +33,10 @@ export default function RelatoriosScreen() {
     setRefreshing(false);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loading} />
-      </View>
-    );
-  }
-
   if (!relatorio) {
     return (
       <View style={styles.container}>
+        <Header title="Relatórios" subtitle="Análise de desempenho" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Erro ao carregar relatório</Text>
           <TouchableOpacity style={styles.retryButton} onPress={carregarRelatorio}>
@@ -57,10 +50,15 @@ export default function RelatoriosScreen() {
   return (
     <View style={styles.container}>
       <Header title="Relatórios" subtitle="Análise de desempenho" />
-      <ScrollView 
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-      <View style={styles.content}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <ScrollView 
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.content}>
         {/* Seletor de Período */}
         <View style={styles.periodoContainer}>
           <TouchableOpacity
@@ -165,8 +163,9 @@ export default function RelatoriosScreen() {
           </View>
         )}
 
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      )}
     </View>
   );
 }
@@ -179,8 +178,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  loading: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   errorContainer: {
     flex: 1,
