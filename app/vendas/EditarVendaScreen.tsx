@@ -1,5 +1,6 @@
 import { db } from '@/database/db';
 import Header from '@/components/Header';
+import ClienteSearchInput from '@/components/ClienteSearchInput';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
 import { VendaService } from '@/service/vendaService';
@@ -7,7 +8,8 @@ import { Produto } from '@/types/Remessa';
 import { Venda } from '@/types/Venda';
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Switch, Text, TextInput } from 'react-native-paper';
 
@@ -28,11 +30,13 @@ export default function EditarVendaScreen() {
     metodo_pagamento: 'PIX'
   });
 
-  useEffect(() => {
-    if (id) {
-      carregarDados();
-    }
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        carregarDados();
+      }
+    }, [id])
+  );
 
   const carregarDados = async () => {
     try {
@@ -113,7 +117,7 @@ export default function EditarVendaScreen() {
         cliente: formData.cliente,
         quantidade_vendida: parseInt(formData.quantidade_vendida),
         preco: parseFloat(formData.preco) * parseInt(formData.quantidade_vendida),
-        data: venda?.data || new Date().toISOString().split('T')[0],
+        data: venda?.data || new Date().toISOString(),
         status: formData.status,
         metodo_pagamento: formData.metodo_pagamento || undefined
       });
@@ -201,15 +205,9 @@ export default function EditarVendaScreen() {
 
           {/* Cliente */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Cliente *</Text>
-            <TextInput
+            <ClienteSearchInput
               value={formData.cliente}
               onChangeText={(text) => setFormData({ ...formData, cliente: text })}
-              style={styles.input}
-              mode="outlined"
-              placeholder="Nome do cliente"
-              outlineColor="#d1d5db"
-              activeOutlineColor="#2563eb"
             />
           </View>
 

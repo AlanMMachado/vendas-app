@@ -5,8 +5,9 @@ import { Remessa } from '@/types/Remessa';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Edit, Trash2 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -18,9 +19,11 @@ export default function RemessasScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedRemessaId, setSelectedRemessaId] = useState<number | null>(null);
 
-  useEffect(() => {
-    carregarRemessas();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      carregarRemessas();
+    }, [])
+  );
 
   const carregarRemessas = async () => {
     try {

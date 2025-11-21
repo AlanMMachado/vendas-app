@@ -41,7 +41,7 @@ export const RelatorioService = {
         const totalVendidoResult = await db.getFirstAsync<{ total: number }>(
             `SELECT SUM(v.preco) as total 
              FROM vendas v
-             WHERE v.data BETWEEN ? AND ? AND v.status = 'OK'`,
+             WHERE DATE(v.data) BETWEEN ? AND ? AND v.status = 'OK'`,
             [dataInicio, dataFim]
         );
         
@@ -49,7 +49,7 @@ export const RelatorioService = {
         const totalPendenteResult = await db.getFirstAsync<{ total: number }>(
             `SELECT SUM(v.preco) as total 
              FROM vendas v
-             WHERE v.data BETWEEN ? AND ? AND v.status = 'PENDENTE'`,
+             WHERE DATE(v.data) BETWEEN ? AND ? AND v.status = 'PENDENTE'`,
             [dataInicio, dataFim]
         );
         
@@ -57,7 +57,7 @@ export const RelatorioService = {
         const quantidadeVendidaResult = await db.getFirstAsync<{ total: number }>(
             `SELECT SUM(v.quantidade_vendida) as total 
              FROM vendas v
-             WHERE v.data BETWEEN ? AND ?`,
+             WHERE DATE(v.data) BETWEEN ? AND ?`,
             [dataInicio, dataFim]
         );
         
@@ -66,7 +66,7 @@ export const RelatorioService = {
             `SELECT SUM(p.custo_producao * v.quantidade_vendida) as total 
              FROM vendas v
              INNER JOIN produtos p ON v.produto_id = p.id
-             WHERE v.data BETWEEN ? AND ?`,
+             WHERE DATE(v.data) BETWEEN ? AND ?`,
             [dataInicio, dataFim]
         );
         
@@ -81,7 +81,7 @@ export const RelatorioService = {
                     SUM(v.preco) as valor_total
              FROM vendas v
              INNER JOIN produtos p ON v.produto_id = p.id
-             WHERE v.data BETWEEN ? AND ?
+             WHERE DATE(v.data) BETWEEN ? AND ?
              GROUP BY p.tipo, p.sabor
              ORDER BY quantidade DESC
              LIMIT 5`,

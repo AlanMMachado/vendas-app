@@ -1,11 +1,13 @@
 import Header from '@/components/Header';
+import ClienteSearchInput from '@/components/ClienteSearchInput';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
 import { VendaService } from '@/service/vendaService';
 import { Produto } from '@/types/Remessa';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Switch, Text, TextInput } from 'react-native-paper';
 
@@ -15,6 +17,7 @@ export default function NovaVendaScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [dropdownAberto, setDropdownAberto] = useState(false);
   const [formData, setFormData] = useState({
     produto_id: '',
     cliente: '',
@@ -24,9 +27,11 @@ export default function NovaVendaScreen() {
     metodo_pagamento: 'PIX'
   });
 
-  useEffect(() => {
-    carregarProdutos();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      carregarProdutos();
+    }, [])
+  );
 
   const carregarProdutos = async () => {
     try {
@@ -68,7 +73,7 @@ export default function NovaVendaScreen() {
         cliente: formData.cliente,
         quantidade_vendida: parseInt(formData.quantidade_vendida),
         preco: parseFloat(formData.preco) * parseInt(formData.quantidade_vendida),
-        data: new Date().toISOString().split('T')[0],
+        data: new Date().toISOString(),
         status: formData.status,
         metodo_pagamento: formData.metodo_pagamento || undefined
       });
@@ -110,7 +115,7 @@ export default function NovaVendaScreen() {
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
       ) : (
-        <ScrollView>
+        <ScrollView scrollEnabled={!dropdownAberto} keyboardShouldPersistTaps="always">
           <View style={styles.content}>
 
         {/* Produto */}
@@ -151,15 +156,10 @@ export default function NovaVendaScreen() {
           
           {/* Cliente */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Cliente *</Text>
-            <TextInput
+            <ClienteSearchInput
               value={formData.cliente}
               onChangeText={(text) => setFormData({ ...formData, cliente: text })}
-              style={styles.input}
-              mode="outlined"
-              placeholder="Nome do cliente"
-              outlineColor="#d1d5db"
-              activeOutlineColor="#2563eb"
+              onDropdownStateChange={setDropdownAberto}
             />
           </View>
 

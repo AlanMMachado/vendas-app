@@ -57,7 +57,7 @@ export default function NovaRemessaScreen() {
       setSaving(true);
       
       const remessaData: RemessaCreateParams = {
-        data: new Date().toISOString().split('T')[0],
+        data: new Date().toISOString(),
         observacao: observacao.trim() || undefined,
         produtos: produtosValidos.map(p => {
           const tipoFinal = p.tipo === 'outro' && p.tipoCustomizado.trim() 

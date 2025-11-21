@@ -6,6 +6,7 @@ import { VendaService } from '@/service/vendaService';
 import { Produto } from '@/types/Produto';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -18,15 +19,17 @@ export default function DashboardScreen() {
   const [kpis, setKpis] = useState({
     totalVendido: 0,
     totalPendente: 0,
-    totalLucro: 0,
     progressoMeta: 0
   });
   const [produtos, setProdutos] = useState<Record<number, Produto>>({});
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
+  // Recarregar dados sempre que a tela ganhar foco
+  useFocusEffect(
+    React.useCallback(() => {
+      carregarDados();
+    }, [])
+  );
 
   const carregarDados = async () => {
     try {
@@ -58,7 +61,6 @@ export default function DashboardScreen() {
       setKpis({
         totalVendido: relatorio.total_vendido,
         totalPendente: relatorio.total_pendente,
-        totalLucro: relatorio.total_lucro,
         progressoMeta: Math.min((relatorio.total_vendido / metaDiariaValor) * 100, 100)
       });
       
@@ -111,17 +113,6 @@ export default function DashboardScreen() {
             <Text style={styles.kpiValue}>R$ {kpis.totalPendente.toFixed(2)}</Text>
             <Text style={styles.kpiSubtext}>
               {state.vendas.filter(v => v.status === 'PENDENTE').length} vendas
-            </Text>
-          </View>
-          
-          <View style={styles.kpiCard}>
-            <View style={styles.kpiIconContainer}>
-              <Text style={styles.kpiIcon}>📈</Text>
-            </View>
-            <Text style={styles.kpiLabel}>Lucro</Text>
-            <Text style={styles.kpiValue}>R$ {kpis.totalLucro.toFixed(2)}</Text>
-            <Text style={styles.kpiSubtext}>
-              {kpis.totalVendido > 0 ? ((kpis.totalLucro / kpis.totalVendido) * 100).toFixed(0) : 0}% margem
             </Text>
           </View>
         </View>

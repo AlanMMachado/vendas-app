@@ -7,8 +7,9 @@ import { Venda } from '@/types/Venda';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Edit, Trash2 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { Edit, Trash2, XCircle } from 'lucide-react-native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -23,11 +24,13 @@ export default function DetalhesRemessaScreen() {
   const [vendaToDelete, setVendaToDelete] = useState<Venda | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      carregarDetalhes();
-    }
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        carregarDetalhes();
+      }
+    }, [id])
+  );
 
   const carregarDetalhes = async () => {
     try {
@@ -200,13 +203,21 @@ export default function DetalhesRemessaScreen() {
             <Text style={styles.kpiValue}>R$ {getValorTotalVendido().toFixed(0)}</Text>
             <Text style={styles.kpiSubtext}>recebido</Text>
           </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Valor Pendente</Text>
-            <Text style={styles.kpiValue}>R$ {getValorPendente().toFixed(0)}</Text>
-            <Text style={styles.kpiSubtext}>a receber</Text>
-          </View>
         </View>
+
+        {/* Valor Pendente (se houver) */}
+        {getValorPendente() > 0 && (
+          <View style={styles.dividaCard}>
+            <View style={styles.dividaHeader}>
+              <XCircle size={20} color="#dc2626" />
+              <Text style={styles.dividaTitle}>Valor Pendente</Text>
+            </View>
+            <Text style={styles.dividaValor}>R$ {getValorPendente().toFixed(2)}</Text>
+            <Text style={styles.dividaSubtext}>
+              {vendas.filter(v => v.status === 'PENDENTE').length} venda{vendas.filter(v => v.status === 'PENDENTE').length !== 1 ? 's' : ''} pendente{vendas.filter(v => v.status === 'PENDENTE').length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        )}
 
         {/* Produtos */}
         <View style={styles.produtosSection}>
@@ -270,16 +281,6 @@ export default function DetalhesRemessaScreen() {
                 <Text style={styles.badgeText}>{vendas.length}</Text>
               </View>
             </View>
-
-            {/* Resumo Financeiro */}
-            {getValorPendente() > 0 && (
-              <View style={styles.vendasResumo}>
-                <View style={styles.resumoItem}>
-                  <Text style={styles.resumoLabel}>Pendente</Text>
-                  <Text style={styles.resumoValor}>R$ {getValorPendente().toFixed(2)}</Text>
-                </View>
-              </View>
-            )}
 
             {/* Lista de Vendas */}
             {vendas.slice(0, 10).map((venda) => (
@@ -552,30 +553,6 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
-  vendasResumo: {
-    flexDirection: 'row',
-    gap: 20,
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  resumoItem: {
-    flex: 1,
-  },
-  resumoLabel: {
-    fontSize: 11,
-    color: '#6b7280',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  resumoValor: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
   vendaItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -735,5 +712,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dividaCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#dc2626',
+    padding: 10,
+    marginBottom: 16,
+  },
+  dividaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dividaTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#dc2626',
+    marginLeft: 8,
+  },
+  dividaValor: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#dc2626',
+    marginBottom: 4,
+  },
+  dividaSubtext: {
+    fontSize: 13,
+    color: '#9ca3af',
   },
 });

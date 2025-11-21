@@ -1,6 +1,7 @@
 import Header from '@/components/Header';
 import { RelatorioService } from '@/service/relatorioService';
 import { RelatorioResponse } from '@/types/Relatorio';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
@@ -11,9 +12,12 @@ export default function RelatoriosScreen() {
   const [relatorio, setRelatorio] = useState<RelatorioResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    carregarRelatorio();
-  }, [periodo]);
+  // Recarregar dados sempre que a tela ganhar foco
+  useFocusEffect(
+    React.useCallback(() => {
+      carregarRelatorio();
+    }, [periodo])
+  );
 
   const carregarRelatorio = async () => {
     try {
@@ -107,19 +111,6 @@ export default function RelatoriosScreen() {
             <Text style={styles.resumoLabel}>Pendente</Text>
             <Text style={styles.resumoValue}>R$ {relatorio.total_pendente.toFixed(2)}</Text>
             <Text style={styles.resumoSubtext}>A receber</Text>
-          </View>
-
-          <View style={styles.resumoCard}>
-            <View style={styles.resumoIconContainer}>
-              <Text style={styles.resumoIcon}>📈</Text>
-            </View>
-            <Text style={styles.resumoLabel}>Lucro</Text>
-            <Text style={styles.resumoValue}>R$ {relatorio.total_lucro.toFixed(2)}</Text>
-            <Text style={styles.resumoSubtext}>
-              {relatorio.total_vendido > 0 
-                ? ((relatorio.total_lucro / relatorio.total_vendido) * 100).toFixed(0) 
-                : 0}% margem
-            </Text>
           </View>
 
           <View style={styles.resumoCard}>

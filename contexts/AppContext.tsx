@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import { SyncService } from '../service/syncService';
 import { Remessa } from '../types/Remessa';
 import { Venda } from '../types/Venda';
 import { Configuracao, ConfiguracaoResponse } from '../types/Configuracao';
@@ -68,6 +69,35 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // Sincronizar clientes na inicialização do app
+  useEffect(() => {
+    const syncClientes = async () => {
+      try {
+        await SyncService.syncAllClientes();
+      } catch (error) {
+        console.error('Erro ao sincronizar clientes:', error);
+      }
+    };
+
+    syncClientes();
+  }, []);
+
+  // Sincronizar cliente quando uma venda é adicionada ou atualizada
+  useEffect(() => {
+    const syncClienteFromVenda = async (venda: Venda) => {
+      try {
+        await SyncService.syncClienteFromVenda(venda);
+      } catch (error) {
+        console.error('Erro ao sincronizar cliente da venda:', error);
+      }
+    };
+
+    if (state.vendas.length > 0) {
+      const ultimaVenda = state.vendas[state.vendas.length - 1];
+      syncClienteFromVenda(ultimaVenda);
+    }
+  }, [state.vendas]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

@@ -24,6 +24,20 @@ export function initDatabase() {
             FOREIGN KEY(remessa_id) REFERENCES remessas(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL UNIQUE,
+            totalComprado REAL NOT NULL DEFAULT 0,
+            totalDevido REAL NOT NULL DEFAULT 0,
+            numeroCompras INTEGER NOT NULL DEFAULT 0,
+            ultimaCompra TEXT,
+            status TEXT NOT NULL DEFAULT 'em_dia' CHECK(status IN ('devedor','em_dia')),
+            dataCadastro TEXT NOT NULL,
+            vendas TEXT NOT NULL DEFAULT '[]', -- JSON array com IDs das vendas
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto_id INTEGER NOT NULL,

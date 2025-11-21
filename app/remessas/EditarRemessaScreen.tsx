@@ -1,7 +1,8 @@
 import Header from '@/components/Header';
 import { RemessaService } from '@/service/remessaService';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
@@ -22,11 +23,13 @@ export default function EditarRemessaScreen() {
   const [produtos, setProdutos] = useState<ProdutoForm[]>([]);
   const [produtosOriginais, setProdutosOriginais] = useState<ProdutoForm[]>([]);
 
-  useEffect(() => {
-    if (id) {
-      carregarRemessa();
-    }
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        carregarRemessa();
+      }
+    }, [id])
+  );
 
   const carregarRemessa = async () => {
     try {

@@ -19,18 +19,20 @@ export const VendaService = {
 
         // Atualiza quantidade vendida do produto
         await db.runAsync(
-            `UPDATE produtos 
+            `UPDATE produtos
              SET quantidade_vendida = quantidade_vendida + ?
              WHERE id = ?`,
             [venda.quantidade_vendida, venda.produto_id]
         );
 
-        return { 
-            id: result.lastInsertRowId as number, 
+        const novaVenda = {
+            id: result.lastInsertRowId as number,
             ...venda,
             metodo_pagamento: venda.metodo_pagamento || undefined,
             created_at: new Date().toISOString()
         };
+
+        return novaVenda;
     },
 
     async getByProduto(produtoId: number): Promise<Venda[]> {
@@ -115,7 +117,7 @@ export const VendaService = {
 
     async getByPeriodo(inicio: string, fim: string): Promise<Venda[]> {
         return await db.getAllAsync<Venda>(
-            `SELECT * FROM vendas WHERE data BETWEEN ? AND ? ORDER BY data DESC`,
+            `SELECT * FROM vendas WHERE DATE(data) BETWEEN ? AND ? ORDER BY data DESC`,
             [inicio, fim]
         );
     },
@@ -129,7 +131,7 @@ export const VendaService = {
 
     async getTotalVendidoPorPeriodo(inicio: string, fim: string): Promise<number> {
         const result = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(preco) as total FROM vendas WHERE data BETWEEN ? AND ? AND status = 'OK'`,
+            `SELECT SUM(preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'OK'`,
             [inicio, fim]
         );
         return result?.total || 0;
@@ -137,7 +139,7 @@ export const VendaService = {
 
     async getTotalPendentePorPeriodo(inicio: string, fim: string): Promise<number> {
         const result = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(preco) as total FROM vendas WHERE data BETWEEN ? AND ? AND status = 'PENDENTE'`,
+            `SELECT SUM(preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'PENDENTE'`,
             [inicio, fim]
         );
         return result?.total || 0;
@@ -148,13 +150,13 @@ export const VendaService = {
         const venda = await this.getById(id);
         if (venda) {
             await db.runAsync(
-                `UPDATE produtos 
+                `UPDATE produtos
                  SET quantidade_vendida = quantidade_vendida - ?
                  WHERE id = ?`,
                 [venda.quantidade_vendida, venda.produto_id]
             );
         }
-        
+
         await db.runAsync(`DELETE FROM vendas WHERE id = ?`, [id]);
     }
 };

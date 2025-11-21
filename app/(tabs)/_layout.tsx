@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { ChartNoAxesColumnIncreasing, FileSpreadsheet, Package, User } from 'lucide-react-native';
+import { ChartNoAxesColumnIncreasing, FileSpreadsheet, Package, User, Users } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../../constants/Colors';
@@ -9,7 +9,7 @@ const ICON_COMPONENTS: Record<string, any> = {
   'chart': ChartNoAxesColumnIncreasing,
   'file': FileSpreadsheet,
   'package': Package,
-  'User': User,
+  'user': Users,
 };
 
 function TabIcon({ color, focused, icon }: { color: string; focused: boolean; icon: string }) {
@@ -44,6 +44,9 @@ function FileIcon(props: any) {
 function PackageIcon(props: any) {
   return <TabIcon {...props} icon={'package'} />;
 }
+function UserIcon(props: any) {
+  return <TabIcon {...props} icon={'user'} />;
+}
 
 
 export default function TabLayout() {
@@ -61,7 +64,7 @@ export default function TabLayout() {
             paddingTop: Platform.OS === 'ios' ? 14 : 10,
             paddingBottom: Platform.OS === 'ios' ? 16 : 18,
             minHeight: Platform.OS === 'ios' ? 84 : 92,
-            elevation: 6,
+            elevation: 10,
             shadowColor: COLORS.navy,
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.06,
@@ -106,6 +109,23 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
+          name="ClientesScreen"
+          options={{
+            title: 'Clientes',
+            headerShown: false,
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.labelContainer}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.gray }]} allowFontScaling={false}>
+                  Clientes
+                </Text>
+                <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
+              </View>
+            ),
+            tabBarIcon: ({ color, focused }) => <UserIcon color={color} focused={focused} />,
+          }}
+        />
+
+        <Tabs.Screen
           name="RelatoriosScreen"
           options={{
             title: 'Relatórios',
@@ -127,35 +147,10 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  tabIcon: {
-    fontSize: 25,
-  },
-  indicator: {
-    position: 'absolute',
-    bottom: -25,
-    width: 5,
-    height: 5,
-    borderRadius: 2,
-  },
-  iconShape: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: COLORS.gray,
-    backgroundColor: 'transparent',
-  },
   iconLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 0,
     textAlign: 'center',
   },
   labelContainer: {
@@ -164,32 +159,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   labelIndicator: {
-    height: 6,
+    height: 4,
     borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 6,
+    marginTop: 5,
     alignSelf: 'center',
-    minWidth: 6,
-  },
-  whatsappButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: Platform.OS === 'ios' ? 100 : 108,
-    zIndex: 1000,
-    backgroundColor: '#25D366',
-    borderRadius: 30,
-    padding: 8,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  whatsappIcon: {
-    width: 40,
-    height: 40,
-  },
+    minWidth: 40,
+  }
 });

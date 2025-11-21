@@ -110,6 +110,7 @@ export default function RootLayout() {
             <Stack.Screen name="vendas/EditarVendaScreen" options={{ headerShown: false }} />
             <Stack.Screen name="remessas/NovaRemessaScreen" options={{ headerShown: false }} />
             <Stack.Screen name="remessas/EditarRemessaScreen" options={{ headerShown: false }} />
+            <Stack.Screen name="clientes/[nome]" options={{ headerShown: false }} />
             <Stack.Screen name="remessas/[id]" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
