@@ -1,4 +1,4 @@
-# Trufas App - Gerenciamento de Vendas
+# Vendas App - Gerenciamento de Vendas
 
 Aplicativo mobile para gerenciamento de vendas de trufas e sobremesas em ambiente de rua, desenvolvido com React Native e Expo.
 
