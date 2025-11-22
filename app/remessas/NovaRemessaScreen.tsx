@@ -1,72 +1,99 @@
 import Header from '@/components/Header';
-import { useApp } from '@/contexts/AppContext';
+import { COLORS } from '@/constants/Colors';
+import { ProdutoConfigService } from '@/service/produtoConfigService';
 import { RemessaService } from '@/service/remessaService';
-import { RemessaCreateParams } from '@/types/Remessa';
+import { ProdutoConfig } from '@/types/ProdutoConfig';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
-interface ProdutoForm {
+interface ProdutoRemessa {
+  produtoConfigId: number;
   tipo: string;
-  tipoCustomizado: string;
+  tipo_customizado?: string;
   sabor: string;
   quantidade_inicial: string;
+  preco_base: number;
+  preco_promocao?: number;
+  quantidade_promocao?: number;
 }
 
 export default function NovaRemessaScreen() {
   const router = useRouter();
-  const { dispatch } = useApp();
   const [saving, setSaving] = useState(false);
   const [observacao, setObservacao] = useState('');
-  const [produtos, setProdutos] = useState<ProdutoForm[]>([
-    { tipo: '', sabor: '', quantidade_inicial: '' }
-  ]);
+  const [produtosConfig, setProdutosConfig] = useState<ProdutoConfig[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoRemessa[]>([]);
 
-  const adicionarProduto = () => {
-    setProdutos([...produtos, { 
-      tipo: '', 
-      tipoCustomizado: '',
-      sabor: '', 
-      quantidade_inicial: '' 
-    }]);
-  };  const removerProduto = (index: number) => {
-    if (produtos.length > 1) {
-      setProdutos(produtos.filter((_, i) => i !== index));
+  useEffect(() => {
+    loadProdutosConfig();
+  }, []);
+
+  const loadProdutosConfig = async () => {
+    try {
+      const configs = await ProdutoConfigService.getAll();
+      setProdutosConfig(configs);
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
     }
   };
 
-  const atualizarProduto = (index: number, campo: keyof ProdutoForm, valor: string) => {
+  const adicionarProduto = (produtoConfig: ProdutoConfig) => {
+    const novoProduto: ProdutoRemessa = {
+      produtoConfigId: produtoConfig.id,
+      tipo: produtoConfig.tipo,
+      tipo_customizado: produtoConfig.tipo_customizado,
+      sabor: '',
+      quantidade_inicial: '',
+      preco_base: produtoConfig.preco_base,
+      preco_promocao: produtoConfig.preco_promocao,
+      quantidade_promocao: produtoConfig.quantidade_promocao
+    };
+
+    setProdutos([...produtos, novoProduto]);
+  };
+
+  const removerProduto = (index: number) => {
+    setProdutos(produtos.filter((_, i) => i !== index));
+  };
+
+  const atualizarProduto = (index: number, campo: keyof ProdutoRemessa, valor: string) => {
     const novosProdutos = [...produtos];
-    novosProdutos[index][campo] = valor;
+    (novosProdutos[index] as any)[campo] = valor;
     setProdutos(novosProdutos);
   };
 
   const handleSubmit = async () => {
     const produtosValidos = produtos.filter(p => {
-      const tipoValido = p.tipo.trim() && (p.tipo !== 'outro' || p.tipoCustomizado.trim());
-      return tipoValido && p.sabor.trim() && p.quantidade_inicial.trim() && parseInt(p.quantidade_inicial) > 0;
+      const quantidadeValida = p.quantidade_inicial.trim() && !isNaN(parseInt(p.quantidade_inicial)) && parseInt(p.quantidade_inicial) > 0;
+      return p.sabor.trim() && quantidadeValida;
     });
 
     if (produtosValidos.length === 0) {
-      alert('Adicione pelo menos um produto válido');
+      alert('Adicione pelo menos um produto válido com sabor e quantidade.');
       return;
     }
 
     try {
       setSaving(true);
-      
-      const remessaData: RemessaCreateParams = {
+
+      const remessaData = {
         data: new Date().toISOString(),
         observacao: observacao.trim() || undefined,
         produtos: produtosValidos.map(p => {
-          const tipoFinal = p.tipo === 'outro' && p.tipoCustomizado.trim() 
-            ? p.tipoCustomizado.trim().charAt(0).toUpperCase() + p.tipoCustomizado.trim().slice(1).toLowerCase()
+          const tipoFinal = p.tipo === 'outro' && p.tipo_customizado
+            ? p.tipo_customizado.charAt(0).toUpperCase() + p.tipo_customizado.slice(1).toLowerCase()
             : p.tipo;
+
           return {
             tipo: tipoFinal,
             sabor: p.sabor.trim(),
-            quantidade_inicial: parseInt(p.quantidade_inicial)
+            quantidade_inicial: parseInt(p.quantidade_inicial),
+            preco_base: p.preco_base,
+            preco_promocao: p.preco_promocao,
+            quantidade_promocao: p.quantidade_promocao,
+            produto_config_id: p.produtoConfigId
           };
         })
       };
@@ -81,170 +108,142 @@ export default function NovaRemessaScreen() {
     }
   };
 
+  const getTipoDisplay = (produto: ProdutoRemessa) => {
+    return produto.tipo === 'outro' && produto.tipo_customizado
+      ? produto.tipo_customizado
+      : produto.tipo;
+  };
+
   return (
     <View style={styles.container}>
-      <Header title="Nova Remessa" subtitle="Registre uma nova entrada de produtos" />
-      <ScrollView>
-      <View style={styles.content}>
+      <Header title="Nova Remessa" subtitle="Selecione produtos e defina quantidades" />
 
-        {/* Produtos */}
-        <View style={styles.produtosSection}>
-          <View style={styles.produtosHeader}>
-            <Text style={styles.sectionTitle}>Produtos</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{produtos.length}</Text>
+      <ScrollView style={styles.content}>
+        <View style={styles.section}>
+          {/* Seleção de Produtos Configurados */}
+          <Text style={styles.sectionTitle}>Produtos Disponíveis</Text>
+          <Text style={styles.sectionSubtitle}>Selecione os produtos para adicionar à remessa</Text>
+
+          {produtosConfig.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>Nenhum produto configurado.</Text>
+              <Text style={styles.emptySubtext}>
+                Vá para Configurações → Produtos para configurar seus produtos primeiro.
+              </Text>
             </View>
-          </View>
-
-          {produtos.map((produto, index) => (
-            <View key={index} style={styles.produtoCard}>
-              {produtos.length > 1 && (
-                <TouchableOpacity 
-                  onPress={() => removerProduto(index)}
-                  style={styles.removeButton}
+          ) : (
+            <View style={styles.produtosConfigGrid}>
+              {produtosConfig.map((config) => (
+                <TouchableOpacity
+                  key={config.id}
+                  onPress={() => adicionarProduto(config)}
+                  style={styles.produtoConfigCard}
                 >
-                  <Text style={styles.removeButtonText}>×</Text>
+                  <Text style={styles.produtoConfigTipo}>
+                    {config.tipo === 'outro' ? config.tipo_customizado : config.tipo}
+                  </Text>
+                  <Text style={styles.produtoConfigPreco}>
+                    R$ {config.preco_base.toFixed(2)}
+                  </Text>
+                  {config.preco_promocao && (
+                    <Text style={styles.produtoConfigPromocao}>
+                      Promo: R$ {config.preco_promocao.toFixed(2)} ({config.quantidade_promocao}+)
+                    </Text>
+                  )}
                 </TouchableOpacity>
-              )}
+              ))}
+            </View>
+          )}
+        </View>
 
-              {/* Tipo */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Tipo *</Text>
-                <View style={styles.tipoButtons}>
-                  <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'Trufa')}
-                    style={[
-                      styles.tipoButton,
-                      produto.tipo === 'Trufa' && styles.tipoButtonActive
-                    ]}
-                  >
-                    <Text style={[
-                      styles.tipoButtonText,
-                      produto.tipo === 'Trufa' && styles.tipoButtonTextActive
-                    ]}>
-                      Trufa
-                    </Text>
-                  </TouchableOpacity>
+        {/* Produtos Selecionados */}
+        {produtos.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.produtosHeader}>
+              <Text style={styles.sectionTitle}>Produtos na Remessa</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{produtos.length}</Text>
+              </View>
+            </View>
 
+            {produtos.map((produto, index) => (
+              <View key={index} style={styles.produtoCard}>
+                {produtos.length > 1 && (
                   <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'Surpresa')}
-                    style={[
-                      styles.tipoButton,
-                      produto.tipo === 'Surpresa' && styles.tipoButtonActive
-                    ]}
+                    onPress={() => removerProduto(index)}
+                    style={styles.removeButton}
                   >
-                    <Text style={[
-                      styles.tipoButtonText,
-                      produto.tipo === 'Surpresa' && styles.tipoButtonTextActive
-                    ]}>
-                      Surpresa
-                    </Text>
+                    <Text style={styles.removeButtonText}>×</Text>
                   </TouchableOpacity>
+                )}
 
-                  <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'Torta')}
-                    style={[
-                      styles.tipoButton,
-                      produto.tipo === 'Torta' && styles.tipoButtonActive
-                    ]}
-                  >
-                    <Text style={[
-                      styles.tipoButtonText,
-                      produto.tipo === 'Torta' && styles.tipoButtonTextActive
-                    ]}>
-                      Torta
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => atualizarProduto(index, 'tipo', 'outro')}
-                    style={[
-                      styles.tipoButton,
-                      produto.tipo === 'outro' && styles.tipoButtonActive
-                    ]}
-                  >
-                    <Text style={[
-                      styles.tipoButtonText,
-                      produto.tipo === 'outro' && styles.tipoButtonTextActive
-                    ]}>
-                      Outro
-                    </Text>
-                  </TouchableOpacity>
+                <View style={styles.produtoInfo}>
+                  <Text style={styles.produtoTipo}>{getTipoDisplay(produto)}</Text>
+                  <Text style={styles.produtoPrecos}>
+                    R$ {produto.preco_base.toFixed(2)}
+                    {produto.preco_promocao && ` → R$ ${produto.preco_promocao.toFixed(2)} (${produto.quantidade_promocao}+)`}
+                  </Text>
                 </View>
 
-                {/* Campo customizado quando "Outro" é selecionado */}
-                {produto.tipo === 'outro' && (
+                {/* Sabor */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Sabor *</Text>
                   <TextInput
-                    value={produto.tipoCustomizado}
-                    onChangeText={(text) => atualizarProduto(index, 'tipoCustomizado', text)}
-                    style={[styles.input, styles.customTipoInput]}
+                    value={produto.sabor}
+                    onChangeText={(text) => atualizarProduto(index, 'sabor', text)}
+                    style={styles.input}
                     mode="outlined"
-                    placeholder="Digite o tipo do produto..."
+                    placeholder="Ex: Morango, Chocolate..."
                     outlineColor="#d1d5db"
                     activeOutlineColor="#2563eb"
                   />
-                )}
-              </View>
+                </View>
 
-              {/* Sabor */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Sabor *</Text>
-                <TextInput
-                  value={produto.sabor}
-                  onChangeText={(text) => atualizarProduto(index, 'sabor', text)}
-                  style={styles.input}
-                  mode="outlined"
-                  placeholder="Ex: Morango, Chocolate..."
-                  outlineColor="#d1d5db"
-                  activeOutlineColor="#2563eb"
-                />
+                {/* Quantidade */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Quantidade *</Text>
+                  <TextInput
+                    value={produto.quantidade_inicial}
+                    onChangeText={(text) => atualizarProduto(index, 'quantidade_inicial', text)}
+                    keyboardType="numeric"
+                    style={styles.input}
+                    mode="outlined"
+                    placeholder="Ex: 20"
+                    outlineColor="#d1d5db"
+                    activeOutlineColor="#2563eb"
+                  />
+                </View>
               </View>
-
-              {/* Quantidade */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Quantidade Inicial *</Text>
-                <TextInput
-                  value={produto.quantidade_inicial}
-                  onChangeText={(text) => atualizarProduto(index, 'quantidade_inicial', text)}
-                  keyboardType="numeric"
-                  style={styles.input}
-                  mode="outlined"
-                  placeholder="Ex: 20"
-                  outlineColor="#d1d5db"
-                  activeOutlineColor="#2563eb"
-                />
-              </View>
-            </View>
-          ))}
-
-          {/* Botão Adicionar */}
-          <TouchableOpacity
-            onPress={adicionarProduto}
-            style={styles.addButton}
-          >
-            <Text style={styles.addButtonText}>+ Adicionar Produto</Text>
-          </TouchableOpacity>
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* Observação */}
         <View style={styles.section}>
-          <Text style={styles.label}>Observação (opcional)</Text>
+          <View style={styles.observacaoHeader}>
+            <Text style={styles.sectionTitle}>Observações</Text>
+            <Text style={styles.sectionSubtitle}>Adicione notas sobre a remessa</Text>
+          </View>
           <TextInput
             value={observacao}
             onChangeText={setObservacao}
-            style={styles.textArea}
+            style={styles.observacaoInput}
             mode="outlined"
             multiline
-            numberOfLines={3}
-            placeholder="Ex: Remessa da segunda-feira..."
-            outlineColor="#d1d5db"
-            activeOutlineColor="#2563eb"
+            numberOfLines={4}
+            placeholder="Ex: Remessa da segunda-feira, congelar antes de enviar..."
+            outlineColor={COLORS.borderGray}
+            activeOutlineColor={COLORS.mediumBlue}
+            placeholderTextColor={COLORS.textLight}
           />
+          <Text style={styles.charCount}>
+            {observacao.length}/200 caracteres
+          </Text>
         </View>
 
         {/* Botões de Ação */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => router.back()}
             disabled={saving}
@@ -252,7 +251,7 @@ export default function NovaRemessaScreen() {
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.submitButton, saving && styles.submitButtonDisabled]}
             onPress={handleSubmit}
             disabled={saving}
@@ -264,8 +263,7 @@ export default function NovaRemessaScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </View>
   );
 }
@@ -273,39 +271,74 @@ export default function NovaRemessaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
   },
-  header: {
-    marginBottom: 20,
-    paddingTop: 8,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
   section: {
     marginBottom: 20,
   },
-  label: {
-    fontSize: 13,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#374151',
+    color: COLORS.textDark,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: COLORS.textMedium,
+    marginBottom: 16,
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.borderGray,
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
     marginBottom: 8,
   },
-  textArea: {
-    backgroundColor: '#ffffff',
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.textMedium,
+    textAlign: 'center',
   },
-  produtosSection: {
-    marginBottom: 20,
+  produtosConfigGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  produtoConfigCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.borderGray,
+    padding: 16,
+    alignItems: 'center',
+  },
+  produtoConfigTipo: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    marginBottom: 8,
+  },
+  produtoConfigPreco: {
+    fontSize: 14,
+    color: COLORS.textMedium,
+    marginBottom: 4,
+  },
+  produtoConfigPromocao: {
+    fontSize: 12,
+    color: COLORS.green,
   },
   produtosHeader: {
     flexDirection: 'row',
@@ -313,36 +346,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
   badge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   produtoCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     padding: 16,
     marginBottom: 12,
     position: 'relative',
-  },
-  produtoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 16,
   },
   removeButton: {
     position: 'absolute',
@@ -351,65 +375,59 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
   },
   removeButtonText: {
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontSize: 24,
     fontWeight: '300',
+  },
+  produtoInfo: {
+    marginBottom: 16,
+  },
+  produtoTipo: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    marginBottom: 4,
+  },
+  produtoPrecos: {
+    fontSize: 14,
+    color: COLORS.textMedium,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  input: {
-    backgroundColor: '#ffffff',
-  },
-  tipoButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tipoButton: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
-  },
-  tipoButtonActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#2563eb',
-  },
-  tipoButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  tipoButtonTextActive: {
-    color: '#ffffff',
-  },
-  customTipoInput: {
-    marginTop: 8,
-  },
-  addButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    borderStyle: 'dashed',
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    fontSize: 14,
+  label: {
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.textDark,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: COLORS.white,
+  },
+  observacaoHeader: {
+    marginBottom: 12,
+  },
+  observacaoInput: {
+    backgroundColor: COLORS.white,
+    minHeight: 100,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginTop: 8,
+    textAlign: 'right',
+  },
+  textArea: {
+    backgroundColor: COLORS.white,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -418,21 +436,21 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.borderGray,
     paddingVertical: 14,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -443,6 +461,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: COLORS.white,
   },
 });

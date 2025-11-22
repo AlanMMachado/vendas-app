@@ -1,52 +1,75 @@
 import { db } from '@/database/db';
-import { Venda, VendaCreateParams } from '../types/Venda';
+import { ItemVenda, Venda, VendaCreateParams, VendaUpdateParams } from '../types/Venda';
 
 export const VendaService = {
     async create(venda: VendaCreateParams): Promise<Venda> {
+        // Calcula total_preco
+        const total_preco = venda.itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+
         const result = await db.runAsync(
-            `INSERT INTO vendas (produto_id, cliente, quantidade_vendida, preco, data, status, metodo_pagamento)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO vendas (cliente, data, status, metodo_pagamento, total_preco)
+             VALUES (?, ?, ?, ?, ?)`,
             [
-                venda.produto_id,
                 venda.cliente,
-                venda.quantidade_vendida,
-                venda.preco,
                 venda.data,
                 venda.status,
-                venda.metodo_pagamento || null
+                venda.metodo_pagamento || null,
+                total_preco
             ]
         );
 
-        // Atualiza quantidade vendida do produto
-        await db.runAsync(
-            `UPDATE produtos
-             SET quantidade_vendida = quantidade_vendida + ?
-             WHERE id = ?`,
-            [venda.quantidade_vendida, venda.produto_id]
-        );
+        const vendaId = result.lastInsertRowId as number;
 
-        const novaVenda = {
-            id: result.lastInsertRowId as number,
-            ...venda,
-            metodo_pagamento: venda.metodo_pagamento || undefined,
+        // Insere itens
+        const itens: ItemVenda[] = [];
+        for (const item of venda.itens) {
+            const itemResult = await db.runAsync(
+                `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario)
+                 VALUES (?, ?, ?, ?)`,
+                [vendaId, item.produto_id, item.quantidade, item.preco_unitario]
+            );
+            itens.push({
+                id: itemResult.lastInsertRowId as number,
+                venda_id: vendaId,
+                ...item
+            });
+
+            // Atualiza quantidade vendida do produto
+            await db.runAsync(
+                `UPDATE produtos
+                 SET quantidade_vendida = quantidade_vendida + ?
+                 WHERE id = ?`,
+                [item.quantidade, item.produto_id]
+            );
+        }
+
+        const novaVenda: Venda = {
+            id: vendaId,
+            cliente: venda.cliente,
+            data: venda.data,
+            status: venda.status,
+            metodo_pagamento: venda.metodo_pagamento,
+            total_preco,
+            itens,
             created_at: new Date().toISOString()
         };
 
         return novaVenda;
     },
 
-    async getByProduto(produtoId: number): Promise<Venda[]> {
-        return await db.getAllAsync<Venda>(
-            `SELECT * FROM vendas WHERE produto_id = ? ORDER BY data DESC`,
-            [produtoId]
-        );
-    },
-
     async getById(id: number): Promise<Venda | null> {
-        return await db.getFirstAsync<Venda>(
+        const venda = await db.getFirstAsync<Omit<Venda, 'itens'>>(
             `SELECT * FROM vendas WHERE id = ?`,
             [id]
         );
+        if (!venda) return null;
+
+        const itens = await db.getAllAsync<ItemVenda>(
+            `SELECT * FROM itens_venda WHERE venda_id = ?`,
+            [id]
+        );
+
+        return { ...venda, itens };
     },
 
     async updateStatus(id: number, status: 'OK' | 'PENDENTE'): Promise<void> {
@@ -56,25 +79,13 @@ export const VendaService = {
         );
     },
 
-    async update(id: number, venda: Partial<VendaCreateParams>): Promise<void> {
+    async update(id: number, venda: VendaUpdateParams): Promise<void> {
         const fields = [];
         const values = [];
-        
-        if (venda.produto_id !== undefined) {
-            fields.push('produto_id = ?');
-            values.push(venda.produto_id);
-        }
+
         if (venda.cliente !== undefined) {
             fields.push('cliente = ?');
             values.push(venda.cliente);
-        }
-        if (venda.quantidade_vendida !== undefined) {
-            fields.push('quantidade_vendida = ?');
-            values.push(venda.quantidade_vendida);
-        }
-        if (venda.preco !== undefined) {
-            fields.push('preco = ?');
-            values.push(venda.preco);
         }
         if (venda.data !== undefined) {
             fields.push('data = ?');
@@ -88,50 +99,91 @@ export const VendaService = {
             fields.push('metodo_pagamento = ?');
             values.push(venda.metodo_pagamento);
         }
-        
-        if (fields.length === 0) return;
-        
-        values.push(id);
-        
-        await db.runAsync(
-            `UPDATE vendas SET ${fields.join(', ')} WHERE id = ?`,
-            values
-        );
-        
-        // Se quantidade_vendida mudou, ajustar no produto
-        if (venda.quantidade_vendida !== undefined) {
-            const vendaAtual = await this.getById(id);
-            if (vendaAtual) {
-                const diferenca = venda.quantidade_vendida - vendaAtual.quantidade_vendida;
-                if (diferenca !== 0) {
-                    await db.runAsync(
-                        `UPDATE produtos 
-                         SET quantidade_vendida = quantidade_vendida + ?
-                         WHERE id = ?`,
-                        [diferenca, vendaAtual.produto_id]
-                    );
-                }
+
+        if (fields.length > 0) {
+            values.push(id);
+            await db.runAsync(
+                `UPDATE vendas SET ${fields.join(', ')} WHERE id = ?`,
+                values
+            );
+        }
+
+        // Se itens foram fornecidos, substituir todos os itens
+        if (venda.itens !== undefined) {
+            // Primeiro, reverter quantidades vendidas dos itens antigos
+            const itensAntigos = await db.getAllAsync<ItemVenda>(
+                `SELECT * FROM itens_venda WHERE venda_id = ?`,
+                [id]
+            );
+            for (const item of itensAntigos) {
+                await db.runAsync(
+                    `UPDATE produtos SET quantidade_vendida = quantidade_vendida - ? WHERE id = ?`,
+                    [item.quantidade, item.produto_id]
+                );
             }
+
+            // Deletar itens antigos
+            await db.runAsync(`DELETE FROM itens_venda WHERE venda_id = ?`, [id]);
+
+            // Inserir novos itens
+            const total_preco = venda.itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+            for (const item of venda.itens) {
+                await db.runAsync(
+                    `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario)
+                     VALUES (?, ?, ?, ?)`,
+                    [id, item.produto_id, item.quantidade, item.preco_unitario]
+                );
+                await db.runAsync(
+                    `UPDATE produtos SET quantidade_vendida = quantidade_vendida + ? WHERE id = ?`,
+                    [item.quantidade, item.produto_id]
+                );
+            }
+
+            // Atualizar total_preco
+            await db.runAsync(
+                `UPDATE vendas SET total_preco = ? WHERE id = ?`,
+                [total_preco, id]
+            );
         }
     },
 
     async getByPeriodo(inicio: string, fim: string): Promise<Venda[]> {
-        return await db.getAllAsync<Venda>(
+        const vendas = await db.getAllAsync<Omit<Venda, 'itens'>>(
             `SELECT * FROM vendas WHERE DATE(data) BETWEEN ? AND ? ORDER BY data DESC`,
             [inicio, fim]
         );
+
+        const vendasComItens: Venda[] = [];
+        for (const venda of vendas) {
+            const itens = await db.getAllAsync<ItemVenda>(
+                `SELECT * FROM itens_venda WHERE venda_id = ?`,
+                [venda.id]
+            );
+            vendasComItens.push({ ...venda, itens });
+        }
+        return vendasComItens;
     },
 
     async getVendasRecentes(limit: number = 10): Promise<Venda[]> {
-        return await db.getAllAsync<Venda>(
+        const vendas = await db.getAllAsync<Omit<Venda, 'itens'>>(
             `SELECT * FROM vendas ORDER BY created_at DESC LIMIT ?`,
             [limit]
         );
+
+        const vendasComItens: Venda[] = [];
+        for (const venda of vendas) {
+            const itens = await db.getAllAsync<ItemVenda>(
+                `SELECT * FROM itens_venda WHERE venda_id = ?`,
+                [venda.id]
+            );
+            vendasComItens.push({ ...venda, itens });
+        }
+        return vendasComItens;
     },
 
     async getTotalVendidoPorPeriodo(inicio: string, fim: string): Promise<number> {
         const result = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'OK'`,
+            `SELECT SUM(total_preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'OK'`,
             [inicio, fim]
         );
         return result?.total || 0;
@@ -139,24 +191,42 @@ export const VendaService = {
 
     async getTotalPendentePorPeriodo(inicio: string, fim: string): Promise<number> {
         const result = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'PENDENTE'`,
+            `SELECT SUM(total_preco) as total FROM vendas WHERE DATE(data) BETWEEN ? AND ? AND status = 'PENDENTE'`,
             [inicio, fim]
         );
         return result?.total || 0;
     },
 
     async delete(id: number): Promise<void> {
-        // Busca a venda antes de deletar para ajustar a quantidade
-        const venda = await this.getById(id);
-        if (venda) {
+        // Reverter quantidades vendidas
+        const itens = await db.getAllAsync<ItemVenda>(
+            `SELECT * FROM itens_venda WHERE venda_id = ?`,
+            [id]
+        );
+        for (const item of itens) {
             await db.runAsync(
-                `UPDATE produtos
-                 SET quantidade_vendida = quantidade_vendida - ?
-                 WHERE id = ?`,
-                [venda.quantidade_vendida, venda.produto_id]
+                `UPDATE produtos SET quantidade_vendida = quantidade_vendida - ? WHERE id = ?`,
+                [item.quantidade, item.produto_id]
             );
         }
 
+        // Deletar itens e venda
+        await db.runAsync(`DELETE FROM itens_venda WHERE venda_id = ?`, [id]);
         await db.runAsync(`DELETE FROM vendas WHERE id = ?`, [id]);
+    },
+
+    // Novo método para buscar vendas por produto (através de itens)
+    async getByProduto(produtoId: number): Promise<Venda[]> {
+        const vendasIds = await db.getAllAsync<{ venda_id: number }>(
+            `SELECT DISTINCT venda_id FROM itens_venda WHERE produto_id = ?`,
+            [produtoId]
+        );
+
+        const vendas: Venda[] = [];
+        for (const { venda_id } of vendasIds) {
+            const venda = await this.getById(venda_id);
+            if (venda) vendas.push(venda);
+        }
+        return vendas.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     }
 };

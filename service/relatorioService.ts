@@ -39,7 +39,7 @@ export const RelatorioService = {
         
         // Total vendido (status OK)
         const totalVendidoResult = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(v.preco) as total 
+            `SELECT SUM(v.total_preco) as total 
              FROM vendas v
              WHERE DATE(v.data) BETWEEN ? AND ? AND v.status = 'OK'`,
             [dataInicio, dataFim]
@@ -47,7 +47,7 @@ export const RelatorioService = {
         
         // Total pendente
         const totalPendenteResult = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(v.preco) as total 
+            `SELECT SUM(v.total_preco) as total 
              FROM vendas v
              WHERE DATE(v.data) BETWEEN ? AND ? AND v.status = 'PENDENTE'`,
             [dataInicio, dataFim]
@@ -55,17 +55,19 @@ export const RelatorioService = {
         
         // Quantidade vendida
         const quantidadeVendidaResult = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(v.quantidade_vendida) as total 
+            `SELECT SUM(iv.quantidade) as total 
              FROM vendas v
+             INNER JOIN itens_venda iv ON v.id = iv.venda_id
              WHERE DATE(v.data) BETWEEN ? AND ?`,
             [dataInicio, dataFim]
         );
         
         // Custo total dos produtos vendidos
         const custoTotalResult = await db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(p.custo_producao * v.quantidade_vendida) as total 
+            `SELECT SUM(p.custo_producao * iv.quantidade) as total 
              FROM vendas v
-             INNER JOIN produtos p ON v.produto_id = p.id
+             INNER JOIN itens_venda iv ON v.id = iv.venda_id
+             INNER JOIN produtos p ON iv.produto_id = p.id
              WHERE DATE(v.data) BETWEEN ? AND ?`,
             [dataInicio, dataFim]
         );
@@ -77,10 +79,11 @@ export const RelatorioService = {
             valor_total: number;
         }>(
             `SELECT p.tipo || ' - ' || p.sabor as produto,
-                    SUM(v.quantidade_vendida) as quantidade,
-                    SUM(v.preco) as valor_total
+                    SUM(iv.quantidade) as quantidade,
+                    SUM(iv.preco_unitario * iv.quantidade) as valor_total
              FROM vendas v
-             INNER JOIN produtos p ON v.produto_id = p.id
+             INNER JOIN itens_venda iv ON v.id = iv.venda_id
+             INNER JOIN produtos p ON iv.produto_id = p.id
              WHERE DATE(v.data) BETWEEN ? AND ?
              GROUP BY p.tipo, p.sabor
              ORDER BY quantidade DESC

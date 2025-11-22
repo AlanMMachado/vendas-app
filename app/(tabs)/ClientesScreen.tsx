@@ -1,16 +1,15 @@
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { ClienteService } from '@/service/clienteService';
 import { ProdutoService } from '@/service/produtoService';
-import { VendaService } from '@/service/vendaService';
 import { Cliente } from '@/types/Cliente';
 import { Produto } from '@/types/Produto';
-import { Venda } from '@/types/Venda';
+import { useFocusEffect } from '@react-navigation/native';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
@@ -129,7 +128,7 @@ export default function ClientesScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView
@@ -279,7 +278,7 @@ export default function ClientesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
@@ -297,10 +296,10 @@ const styles = StyleSheet.create({
   },
   resumoCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
     alignItems: 'center',
   },
@@ -311,25 +310,25 @@ const styles = StyleSheet.create({
   resumoValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   resumoLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     textAlign: 'center',
   },
   resumoSubtext: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: COLORS.textLight,
     textAlign: 'center',
   },
   filtrosContainer: {
     marginBottom: 20,
   },
   buscaInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     marginBottom: 12,
   },
   filtrosBotoes: {
@@ -342,33 +341,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
+    borderColor: COLORS.borderGray,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
   },
   filtroBotaoAtivo: {
-    borderColor: '#2563eb',
-    backgroundColor: '#dbeafe',
+    borderColor: COLORS.mediumBlue,
+    backgroundColor: COLORS.mediumBlue,
   },
   filtroTexto: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   filtroTextoAtivo: {
-    color: '#2563eb',
+    color: COLORS.white,
   },
   clientesSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 16,
   },
   emptyState: {
@@ -382,22 +381,22 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   emptySubtext: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.textMedium,
     textAlign: 'center',
   },
   clientesList: {
     gap: 12,
   },
   clienteCard: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     padding: 12,
   },
   clienteHeader: {
@@ -412,12 +411,12 @@ const styles = StyleSheet.create({
   clienteNome: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   clienteStatus: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   statusContainer: {
     alignItems: 'flex-end',
@@ -429,51 +428,51 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statusDevedor: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.error,
   },
   statusEmDia: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.green,
   },
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
   },
   statusTextDevedor: {
-    color: '#dc2626',
+    color: COLORS.white,
   },
   statusTextEmDia: {
-    color: '#2563eb',
+    color: COLORS.white,
   },
   totalComprado: {
     alignItems: 'flex-end',
   },
   totalCompradoLabel: {
     fontSize: 10,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 2,
   },
   totalCompradoValor: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   valorDevido: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: COLORS.borderGray,
     alignItems: 'flex-end',
   },
   valorDevidoLabel: {
     fontSize: 10,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 2,
   },
   valorDevidoValor: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#dc2626',
+    color: COLORS.error,
   },
 });

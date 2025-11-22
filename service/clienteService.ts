@@ -108,6 +108,7 @@ export const ClienteService = {
     },
 
     async addVendaToCliente(clienteId: number, vendaId: number): Promise<void> {
+        // Adiciona venda ao array
         const cliente = await this.getById(clienteId);
         if (!cliente) return;
 
@@ -117,6 +118,9 @@ export const ClienteService = {
             `UPDATE clientes SET vendas = ?, updated_at = ? WHERE id = ?`,
             [JSON.stringify(vendas), new Date().toISOString(), clienteId]
         );
+
+        // Recalcula totais
+        await this.recalcularTotais(clienteId);
     },
 
     async removeVendaFromCliente(clienteId: number, vendaId: number): Promise<void> {
@@ -128,6 +132,55 @@ export const ClienteService = {
         await db.runAsync(
             `UPDATE clientes SET vendas = ?, updated_at = ? WHERE id = ?`,
             [JSON.stringify(vendas), new Date().toISOString(), clienteId]
+        );
+
+        // Recalcula totais
+        await this.recalcularTotais(clienteId);
+    },
+
+    async recalcularTotais(clienteId: number): Promise<void> {
+        // Busca vendas do cliente
+        const vendasIds = await db.getFirstAsync<{ vendas: string }>(
+            `SELECT vendas FROM clientes WHERE id = ?`,
+            [clienteId]
+        );
+        if (!vendasIds) return;
+
+        const vendasArray: number[] = JSON.parse(vendasIds.vendas);
+        if (vendasArray.length === 0) {
+            await db.runAsync(
+                `UPDATE clientes SET totalComprado = 0, totalDevido = 0, numeroCompras = 0, ultimaCompra = '', status = 'em_dia' WHERE id = ?`,
+                [clienteId]
+            );
+            return;
+        }
+
+        // Calcula totais das vendas
+        const vendasData = await db.getAllAsync<{ total_preco: number; status: string; data: string }>(
+            `SELECT total_preco, status, data FROM vendas WHERE id IN (${vendasArray.map(() => '?').join(',')})`,
+            vendasArray
+        );
+
+        let totalComprado = 0;
+        let totalDevido = 0;
+        let numeroCompras = vendasData.length;
+        let ultimaCompra = '';
+
+        for (const venda of vendasData) {
+            totalComprado += venda.total_preco;
+            if (venda.status === 'PENDENTE') {
+                totalDevido += venda.total_preco;
+            }
+            if (!ultimaCompra || venda.data > ultimaCompra) {
+                ultimaCompra = venda.data;
+            }
+        }
+
+        const status = totalDevido > 0 ? 'devedor' : 'em_dia';
+
+        await db.runAsync(
+            `UPDATE clientes SET totalComprado = ?, totalDevido = ?, numeroCompras = ?, ultimaCompra = ?, status = ? WHERE id = ?`,
+            [totalComprado, totalDevido, numeroCompras, ultimaCompra, status, clienteId]
         );
     },
 

@@ -1,25 +1,25 @@
 import { db } from '@/database/db';
+import { Venda } from '../types/Venda';
 import { ClienteService } from './clienteService';
 import { VendaService } from './vendaService';
-import { Venda } from '../types/Venda';
 
 export const SyncService = {
     async syncClienteFromVenda(venda: Venda): Promise<void> {
         if (!venda.cliente) return;
 
         // Buscar todas as vendas do cliente
-        const vendasCliente = await db.getAllAsync<Venda>(
-            `SELECT * FROM vendas WHERE cliente = ? ORDER BY data DESC`,
+        const vendasCliente = await db.getAllAsync<{ id: number; total_preco: number; status: string; data: string }>(
+            `SELECT id, total_preco, status, data FROM vendas WHERE cliente = ? ORDER BY data DESC`,
             [venda.cliente]
         );
 
         if (vendasCliente.length === 0) return;
 
         // Calcular métricas
-        const totalComprado = vendasCliente.reduce((sum, v) => sum + v.preco, 0);
+        const totalComprado = vendasCliente.reduce((sum, v) => sum + v.total_preco, 0);
         const totalDevido = vendasCliente
             .filter(v => v.status === 'PENDENTE')
-            .reduce((sum, v) => sum + v.preco, 0);
+            .reduce((sum, v) => sum + v.total_preco, 0);
 
         const numeroCompras = vendasCliente.length;
         const ultimaCompra = vendasCliente[0].data; // Já ordenado por data DESC

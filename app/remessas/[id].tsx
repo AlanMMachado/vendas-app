@@ -1,16 +1,18 @@
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { RemessaService } from '@/service/remessaService';
+import { SyncService } from '@/service/syncService';
 import { VendaService } from '@/service/vendaService';
 import { Remessa } from '@/types/Remessa';
 import { Venda } from '@/types/Venda';
+import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { Edit, Trash2, XCircle } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, RefreshControl } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
 export default function DetalhesRemessaScreen() {
@@ -39,11 +41,14 @@ export default function DetalhesRemessaScreen() {
       setRemessa(remessaData);
       
       if (remessaData?.produtos) {
-        const todasVendas: Venda[] = [];
+        const vendasMap = new Map<number, Venda>();
         for (const produto of remessaData.produtos) {
           const vendasProduto = await VendaService.getByProduto(produto.id);
-          todasVendas.push(...vendasProduto);
+          for (const venda of vendasProduto) {
+            vendasMap.set(venda.id, venda);
+          }
         }
+        const todasVendas = Array.from(vendasMap.values());
         setVendas(todasVendas.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
       }
     } catch (error) {
@@ -75,7 +80,16 @@ export default function DetalhesRemessaScreen() {
     if (!vendaToDelete) return;
 
     try {
+      const nomeCliente = vendaToDelete.cliente;
+      
       await VendaService.delete(vendaToDelete.id);
+      
+      // Sincronizar cliente após deletar venda
+      if (nomeCliente) {
+        const vendaTemp = { ...vendaToDelete, id: vendaToDelete.id };
+        await SyncService.syncClienteFromVenda(vendaTemp);
+      }
+      
       // Recarregar dados
       await carregarDetalhes();
     } catch (error) {
@@ -136,13 +150,13 @@ export default function DetalhesRemessaScreen() {
   const getValorTotalVendido = () => {
     return vendas
       .filter(venda => venda.status === 'OK')
-      .reduce((total, venda) => total + venda.preco, 0);
+      .reduce((total, venda) => total + venda.total_preco, 0);
   };
 
   const getValorPendente = () => {
     return vendas
       .filter(venda => venda.status === 'PENDENTE')
-      .reduce((total, venda) => total + venda.preco, 0);
+      .reduce((total, venda) => total + venda.total_preco, 0);
   };
 
   const getProdutoById = (produtoId: number) => {
@@ -168,7 +182,7 @@ export default function DetalhesRemessaScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView
@@ -287,19 +301,22 @@ export default function DetalhesRemessaScreen() {
               <View key={venda.id} style={styles.vendaItem}>
                 <View style={styles.vendaInfo}>
                   <Text style={styles.vendaCliente}>{venda.cliente}</Text>
-                  {(() => {
-                    const produto = getProdutoById(venda.produto_id);
-                    return produto ? (
-                      <Text style={styles.vendaProduto}>
-                        {produto.tipo} - {produto.sabor} ({venda.quantidade_vendida} unidade{venda.quantidade_vendida !== 1 ? 's' : ''})
-                      </Text>
-                    ) : null;
-                  })()}
+                  <View style={styles.vendaProdutos}>
+                    {venda.itens.map((item, itemIndex) => {
+                      const produto = getProdutoById(item.produto_id);
+                      return produto ? (
+                        <Text key={`${venda.id}-${itemIndex}`} style={styles.vendaProduto}>
+                          {produto.tipo} - {produto.sabor} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''} x R$ {item.preco_unitario.toFixed(2)})
+                        </Text>
+                      ) : null;
+                    })}
+                  </View>
                   <Text style={styles.vendaData}>
                     {formatDateTime(venda.data)}
                   </Text>
                 </View>
                 <View style={styles.vendaValores}>
+                  <Text style={styles.vendaTotal}>R$ {venda.total_preco.toFixed(2)}</Text>
                   <View style={[
                     styles.vendaStatus,
                     venda.status === 'OK' ? styles.statusPago : styles.statusPendente
@@ -312,12 +329,12 @@ export default function DetalhesRemessaScreen() {
                     </Text>
                   </View>
                 </View>
-                <View style={styles.vendaActions}>
+              <View style={styles.vendaActions}>
                   <TouchableOpacity 
                     style={styles.editVendaButton}
                     onPress={() => router.push(`/vendas/EditarVendaScreen?id=${venda.id}`)}
                   >
-                    <Edit size={14} color="#2563eb" />
+                    <Edit size={14} color={COLORS.mediumBlue} />
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.deleteVendaButton}
@@ -326,7 +343,7 @@ export default function DetalhesRemessaScreen() {
                       setDeleteVendaModalVisible(true);
                     }}
                   >
-                    <Trash2 size={14} color="#dc2626" />
+                    <Trash2 size={14} color={COLORS.error} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -377,7 +394,7 @@ export default function DetalhesRemessaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
@@ -396,13 +413,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   headerCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 24,
     marginBottom: 16,
     alignItems: 'center',
@@ -414,13 +431,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     textAlign: 'center',
     marginBottom: 8,
   },
   headerObservacao: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     textAlign: 'center',
   },
   kpisGrid: {
@@ -431,33 +448,33 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     width: '48%',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
   },
   kpiLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 4,
   },
   kpiValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   kpiSubtext: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: COLORS.textLight,
   },
   produtosSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 16,
   },
@@ -470,25 +487,27 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   badge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   produtoItem: {
     padding: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     marginBottom: 12,
   },
   produtoHeader: {
@@ -497,12 +516,12 @@ const styles = StyleSheet.create({
   produtoNome: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   produtoCusto: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   produtoProgress: {
     marginBottom: 12,
@@ -515,141 +534,153 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.textDark,
   },
   progressPercentage: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   progressContainer: {
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.borderGray,
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 4,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   statusText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   vendasSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 16,
   },
   vendaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     marginBottom: 8,
-    position: 'relative',
   },
   vendaInfo: {
     flex: 1,
+    marginBottom: 8,
   },
   vendaCliente: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 2,
   },
   vendaProduto: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     marginBottom: 2,
     fontWeight: '500',
   },
+  vendaProdutos: {
+    marginBottom: 4,
+  },
+  vendaTotal: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+    marginBottom: 4,
+  },
   vendaData: {
     fontSize: 11,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   vendaValores: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   vendaStatus: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   statusPago: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
+    borderColor: COLORS.green,
   },
   statusPendente: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.softGray,
+    borderColor: COLORS.warning,
   },
   vendaStatusText: {
     fontSize: 11,
     fontWeight: 'bold',
   },
   statusTextPago: {
-    color: '#2563eb',
+    color: COLORS.green,
   },
   statusTextPendente: {
-    color: '#6b7280',
+    color: COLORS.warning,
   },
   vendaActions: {
     flexDirection: 'row',
     gap: 8,
-    position: 'absolute',
-    top: 8,
-    right: 8,
   },
   editVendaButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#dbeafe',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   deleteVendaButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fee2e2',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
   maisVendas: {
     textAlign: 'center',
-    color: '#9ca3af',
+    color: COLORS.textLight,
     fontSize: 12,
     marginTop: 8,
     fontStyle: 'italic',
   },
   novaVendaButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
   novaVendaText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -658,38 +689,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     marginHorizontal: 16,
     marginBottom: 16,
   },
   editButton: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
     flex: 1,
     marginRight: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   editButtonText: {
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
     fontSize: 14,
     fontWeight: 'bold',
   },
   deleteButton: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.softGray,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
     flex: 1,
     marginLeft: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
   deleteButtonText: {
-    color: '#dc2626',
+    color: COLORS.error,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -701,7 +736,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#3b82f6',
+    backgroundColor: COLORS.mediumBlue,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -709,15 +744,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#ef4444',
+    backgroundColor: COLORS.error,
     justifyContent: 'center',
     alignItems: 'center',
   },
   dividaCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dc2626',
+    borderWidth: 1,
+    borderColor: COLORS.error,
     padding: 10,
     marginBottom: 16,
   },
@@ -729,17 +764,17 @@ const styles = StyleSheet.create({
   dividaTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#dc2626',
+    color: COLORS.error,
     marginLeft: 8,
   },
   dividaValor: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#dc2626',
+    color: COLORS.error,
     marginBottom: 4,
   },
   dividaSubtext: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.textLight,
   },
 });

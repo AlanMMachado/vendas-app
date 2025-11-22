@@ -1,15 +1,24 @@
-import Header from '@/components/Header';
 import ClienteSearchInput from '@/components/ClienteSearchInput';
+import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
+import { SyncService } from '@/service/syncService';
 import { VendaService } from '@/service/vendaService';
 import { Produto } from '@/types/Remessa';
-import { Picker } from '@react-native-picker/picker';
-import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { ActivityIndicator, Switch, Text, TextInput } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
+
+const { width } = Dimensions.get('window');
+
+interface ItemVendaForm {
+  produto_id: string;
+  quantidade: string;
+  preco_unitario: string;
+}
 
 export default function NovaVendaScreen() {
   const router = useRouter();
@@ -17,14 +26,13 @@ export default function NovaVendaScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [dropdownAberto, setDropdownAberto] = useState(false);
+  const [itens, setItens] = useState<ItemVendaForm[]>([
+    { produto_id: '', quantidade: '1', preco_unitario: '' }
+  ]);
   const [formData, setFormData] = useState({
-    produto_id: '',
     cliente: '',
-    quantidade_vendida: '1',
-    preco: '',
     status: 'OK' as 'OK' | 'PENDENTE',
-    metodo_pagamento: 'PIX'
+    metodo_pagamento: 'Pix'
   });
 
   useFocusEffect(
@@ -55,29 +63,166 @@ export default function NovaVendaScreen() {
     }
   };
 
+  const calcularPrecoUnitario = (produto: Produto, itens: ItemVendaForm[]): number => {
+    const quantidadeTotalTipo = itens.reduce((total, item) => {
+      if (item.produto_id && item.quantidade) {
+        const itemProduto = produtos.find(p => p.id.toString() === item.produto_id);
+        if (itemProduto && itemProduto.tipo === produto.tipo) {
+          return total + parseInt(item.quantidade);
+        }
+      }
+      return total;
+    }, 0);
+
+    if (produto.preco_promocao && produto.quantidade_promocao && quantidadeTotalTipo >= produto.quantidade_promocao) {
+      return produto.preco_promocao;
+    }
+    return produto.preco_base || 0;
+  };
+
+  const incrementarQuantidade = (index: number) => {
+    const novosItens = [...itens];
+    const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
+    novosItens[index].quantidade = (quantidadeAtual + 1).toString();
+    const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+    setItens(itensComPrecosAtualizados);
+  };
+
+  const decrementarQuantidade = (index: number) => {
+    const novosItens = [...itens];
+    const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
+    if (quantidadeAtual > 1) {
+      novosItens[index].quantidade = (quantidadeAtual - 1).toString();
+      const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+      setItens(itensComPrecosAtualizados);
+    }
+  };
+
+  const calcularSubtotalItem = (item: ItemVendaForm): number => {
+    const quantidade = parseInt(item.quantidade) || 0;
+    const preco = parseFloat(item.preco_unitario) || 0;
+    return quantidade * preco;
+  };
+
+  const recalcularTodosPrecos = (itensParaRecalcular: ItemVendaForm[]): ItemVendaForm[] => {
+    return itensParaRecalcular.map(item => {
+      if (item.produto_id) {
+        const produto = produtos.find(p => p.id.toString() === item.produto_id);
+        if (produto) {
+          const precoCalculado = calcularPrecoUnitario(produto, itensParaRecalcular);
+          return {
+            ...item,
+            preco_unitario: precoCalculado.toFixed(2)
+          };
+        }
+      }
+      return item;
+    });
+  };
+
+  const isPromocaoAplicada = (item: ItemVendaForm, todosItens: ItemVendaForm[]): boolean => {
+    if (!item.produto_id) return false;
+    const produto = produtos.find(p => p.id.toString() === item.produto_id);
+    if (!produto || !produto.preco_promocao || !produto.quantidade_promocao) return false;
+
+    const quantidadeTotalTipo = todosItens.reduce((total, itemAtual) => {
+      if (itemAtual.produto_id && itemAtual.quantidade) {
+        const itemProduto = produtos.find(p => p.id.toString() === itemAtual.produto_id);
+        if (itemProduto && itemProduto.tipo === produto.tipo) {
+          return total + parseInt(itemAtual.quantidade);
+        }
+      }
+      return total;
+    }, 0);
+
+    return quantidadeTotalTipo >= produto.quantidade_promocao;
+  };
+
+  const adicionarItem = () => {
+    setItens([...itens, { produto_id: '', quantidade: '1', preco_unitario: '' }]);
+  };
+
+  const removerItem = (index: number) => {
+    if (itens.length > 1) {
+      setItens(itens.filter((_, i) => i !== index));
+    }
+  };
+
+  const atualizarItem = (index: number, campo: keyof ItemVendaForm, valor: string) => {
+    const novosItens = [...itens];
+    novosItens[index][campo] = valor;
+
+    if (campo === 'produto_id' || campo === 'quantidade') {
+      const produtoId = novosItens[index].produto_id;
+      if (produtoId) {
+        const produto = produtos.find(p => p.id.toString() === produtoId);
+        if (produto) {
+          const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+          setItens(itensComPrecosAtualizados);
+          return;
+        }
+      }
+    }
+
+    setItens(novosItens);
+  };
+
+  const calcularTotal = () => {
+    return itens.reduce((total, item) => {
+      const quantidade = parseInt(item.quantidade) || 0;
+      const preco = parseFloat(item.preco_unitario) || 0;
+      return total + (quantidade * preco);
+    }, 0);
+  };
+
   const handleSubmit = async () => {
-    if (!formData.produto_id || !formData.preco || !formData.cliente) {
-      alert('Por favor, preencha todos os campos obrigatórios');
+    if (!formData.cliente.trim()) {
+      alert('Por favor, informe o nome do cliente');
       return;
     }
 
-    if(!formData.metodo_pagamento || formData.metodo_pagamento.trim() === ""){
-      alert("Selecione um método de pagamento.")
+    const itensValidos = itens.filter(item => {
+      const produto = produtos.find(p => p.id.toString() === item.produto_id);
+      return produto && item.quantidade.trim() && parseInt(item.quantidade) > 0 && item.preco_unitario.trim() && parseFloat(item.preco_unitario) >= 0;
+    });
+
+    if (itensValidos.length === 0) {
+      alert('Adicione pelo menos um produto válido');
       return;
+    }
+
+    for (const item of itensValidos) {
+      const produto = produtos.find(p => p.id.toString() === item.produto_id);
+      if (produto) {
+        const estoqueDisponivel = produto.quantidade_inicial - produto.quantidade_vendida;
+        const quantidadeSolicitada = parseInt(item.quantidade);
+        if (quantidadeSolicitada > estoqueDisponivel) {
+          alert(`Estoque insuficiente para ${produto.tipo} ${produto.sabor}. Disponível: ${estoqueDisponivel} unidades`);
+          return;
+        }
+      }
     }
 
     try {
       setSaving(true);
-      const venda = await VendaService.create({
-        produto_id: parseInt(formData.produto_id),
-        cliente: formData.cliente,
-        quantidade_vendida: parseInt(formData.quantidade_vendida),
-        preco: parseFloat(formData.preco) * parseInt(formData.quantidade_vendida),
+      
+      const vendaData = {
+        cliente: formData.cliente.trim(),
         data: new Date().toISOString(),
         status: formData.status,
-        metodo_pagamento: formData.metodo_pagamento || undefined
-      });
+        metodo_pagamento: formData.metodo_pagamento,
+        itens: itensValidos.map(item => ({
+          produto_id: parseInt(item.produto_id),
+          quantidade: parseInt(item.quantidade),
+          preco_unitario: parseFloat(item.preco_unitario)
+        }))
+      };
 
+      const venda = await VendaService.create(vendaData);
+      
+      // Sincronizar cliente imediatamente (esperar conclusão)
+      await SyncService.syncClienteFromVenda(venda);
+      
       dispatch({ type: 'ADD_VENDA', payload: venda });
       router.back();
     } catch (error) {
@@ -112,195 +257,313 @@ export default function NovaVendaScreen() {
       <Header title="Nova Venda" subtitle="Registre uma venda rapidamente" />
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
-        <ScrollView scrollEnabled={!dropdownAberto} keyboardShouldPersistTaps="always">
+        <ScrollView keyboardShouldPersistTaps="always" style={styles.scrollView}>
           <View style={styles.content}>
 
-        {/* Produto */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Produto *</Text>
-          <Text style={styles.sectionSubtitle}>Selecione o produto vendido</Text>
-          
-          <View style={styles.produtosGrid}>
-            {produtos.map((produto) => (
-              <TouchableOpacity
-                key={produto.id}
-                onPress={() => setFormData({ ...formData, produto_id: produto.id.toString() })}
-                style={[
-                  styles.produtoChip,
-                  formData.produto_id === produto.id.toString() && styles.produtoChipActive
-                ]}
-              >
-                <Text style={[
-                  styles.produtoChipText,
-                  formData.produto_id === produto.id.toString() && styles.produtoChipTextActive
-                ]}>
-                  {produto.tipo} - {produto.sabor}
-                </Text>
-                <Text style={[
-                  styles.produtoChipStock,
-                  formData.produto_id === produto.id.toString() && styles.produtoChipStockActive
-                ]}>
-                  {produto.quantidade_inicial - produto.quantidade_vendida} disp.
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            {/* PASSO 1: Seleção de Produtos */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepNumber}>1</Text>
+                </View>
+                <View>
+                  <Text style={styles.sectionTitle}>Selecione os Produtos</Text>
+                  <Text style={styles.sectionSubtitle}>Escolha e defina as quantidades</Text>
+                </View>
+              </View>
 
-        {/* Informações */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações da Venda</Text>
-          
-          {/* Cliente */}
-          <View style={styles.inputContainer}>
-            <ClienteSearchInput
-              value={formData.cliente}
-              onChangeText={(text) => setFormData({ ...formData, cliente: text })}
-              onDropdownStateChange={setDropdownAberto}
-            />
-          </View>
+              {/* Cards de Produtos */}
+              {itens.map((item, index) => (
+                <View key={index} style={styles.produtoItemCard}>
+                  {itens.length > 1 && (
+                    <TouchableOpacity 
+                      onPress={() => removerItem(index)}
+                      style={styles.removeButton}
+                    >
+                      <Text style={styles.removeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
 
-          {/* Quantidade e Preço */}
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>Quantidade *</Text>
-              <TextInput
-                value={formData.quantidade_vendida}
-                onChangeText={(text) => setFormData({ ...formData, quantidade_vendida: text })}
-                keyboardType="numeric"
-                style={styles.input}
-                mode="outlined"
-                placeholder="1"
-                outlineColor="#d1d5db"
-                activeOutlineColor="#2563eb"
-              />
+                  {/* Seleção de Produto */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Produto</Text>
+                    <View style={styles.produtosGrid}>
+                      {produtos.map((produto) => {
+                        const isSelected = item.produto_id === produto.id.toString();
+                        const estoque = produto.quantidade_inicial - produto.quantidade_vendida;
+                        
+                        return (
+                          <TouchableOpacity
+                            key={produto.id}
+                            onPress={() => atualizarItem(index, 'produto_id', produto.id.toString())}
+                            style={[
+                              styles.produtoGridCard,
+                              isSelected && styles.produtoGridCardActive
+                            ]}
+                          >
+                            <View style={[styles.produtoGridHeader, isSelected && styles.produtoGridHeaderActive]}>
+                              <Text style={[styles.produtoGridType, isSelected && styles.produtoGridTypeActive]}>
+                                {produto.tipo}
+                              </Text>
+                              <View style={[styles.stockBadgeGrid, isSelected && styles.stockBadgeGridActive]}>
+                                <Text style={[styles.stockTextGrid, isSelected && styles.stockTextGridActive]}>
+                                  {estoque}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.produtoGridSabor, isSelected && styles.produtoGridSaborActive]}>
+                              {produto.sabor}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Quantidade e Preço - Apenas se produto selecionado */}
+                  {item.produto_id && (
+                    <View style={styles.quantityPriceSection}>
+                      {/* Quantidade */}
+                      <View style={styles.quantityCard}>
+                        <Text style={styles.label}>Qtd</Text>
+                        <View style={styles.quantityControls}>
+                          <TouchableOpacity
+                            onPress={() => decrementarQuantidade(index)}
+                            style={[styles.quantityButton, parseInt(item.quantidade) <= 1 && styles.quantityButtonDisabled]}
+                            disabled={parseInt(item.quantidade) <= 1}
+                          >
+                            <Text style={styles.quantityButtonText}>−</Text>
+                          </TouchableOpacity>
+                          <TextInput
+                            value={item.quantidade}
+                            onChangeText={(text) => atualizarItem(index, 'quantidade', text)}
+                            keyboardType="numeric"
+                            style={styles.quantityInput}
+                            mode="outlined"
+                            outlineColor={COLORS.borderGray}
+                            activeOutlineColor={COLORS.mediumBlue}
+                          />
+                          <TouchableOpacity
+                            onPress={() => incrementarQuantidade(index)}
+                            style={styles.quantityButton}
+                          >
+                            <Text style={styles.quantityButtonText}>+</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Preço */}
+                      <View style={styles.priceCard}>
+                        <View style={styles.priceLabelRow}>
+                          <Text style={styles.label}>Valor</Text>
+                          {isPromocaoAplicada(item, itens) && (
+                            <View style={styles.promotionBadge}>
+                              <Text style={styles.promotionBadgeText}>PROMOÇÃO</Text>
+                            </View>
+                          )}
+                        </View>
+                        <TextInput
+                          value={`R$ ${parseFloat(item.preco_unitario || '0').toFixed(2)}`}
+                          editable={false}
+                          style={[
+                            styles.input,
+                            styles.priceInput,
+                            isPromocaoAplicada(item, itens) && styles.priceInputPromotion
+                          ]}
+                          mode="outlined"
+                          outlineColor={isPromocaoAplicada(item, itens) ? COLORS.pink : COLORS.borderGray}
+                          activeOutlineColor={isPromocaoAplicada(item, itens) ? COLORS.pink : COLORS.mediumBlue}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              {/* Botão Adicionar Produto */}
+              {itens.length < produtos.length && (
+                <TouchableOpacity
+                  onPress={adicionarItem}
+                  style={styles.addProductButton}
+                >
+                  <Text style={styles.addProductButtonText}>+ Adicionar Produto</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>Preço (R$) *</Text>
-              <TextInput
-                value={formData.preco}
-                onChangeText={(text) => setFormData({ ...formData, preco: text })}
-                keyboardType="numeric"
-                style={styles.input}
-                mode="outlined"
-                placeholder="0.00"
-                outlineColor="#d1d5db"
-                activeOutlineColor="#2563eb"
-              />
+            {/* PASSO 2: Cliente e Pagamento */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepNumber}>2</Text>
+                </View>
+                <View>
+                  <Text style={styles.sectionTitle}>Detalhes da Venda</Text>
+                  <Text style={styles.sectionSubtitle}>Cliente e pagamento</Text>
+                </View>
+              </View>
+
+              {/* Cliente */}
+              <View style={styles.inputContainer}>
+                <ClienteSearchInput
+                  value={formData.cliente}
+                  onChangeText={(text) => setFormData({ ...formData, cliente: text })}
+                />
+              </View>
+
+              {/* Método de Pagamento */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Método de Pagamento</Text>
+                <View style={styles.paymentGrid}>
+                  {[
+                    { label: 'Pix', value: 'Pix', color: '#10b981' },
+                    { label: 'Dinheiro', value: 'Dinheiro', color: '#059669' },
+                    { label: 'Débito', value: 'Cartão Débito', color: '#0891b2' },
+                    { label: 'Crédito', value: 'Cartão Crédito', color: '#8b5cf6' }
+                  ].map((method) => (
+                    <TouchableOpacity
+                      key={method.value}
+                      onPress={() => setFormData({ ...formData, metodo_pagamento: method.value })}
+                      style={[
+                        styles.paymentButton,
+                        formData.metodo_pagamento === method.value && {
+                          ...styles.paymentButtonActive,
+                          backgroundColor: method.color
+                        }
+                      ]}
+                    >
+                      <Text style={[
+                        styles.paymentLabel,
+                        formData.metodo_pagamento === method.value && styles.paymentLabelActive
+                      ]}>
+                        {method.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
-          </View>
 
-          {/* Método de Pagamento */}
-          <Text style={styles.label}>Método de Pagamento *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.metodo_pagamento}
-              onValueChange={(itemValue) =>
-                setFormData({ ...formData, metodo_pagamento: itemValue })
-              }
-              style={styles.picker}
-            >
-              <Picker.Item label="Pix" value="Pix" />
-              <Picker.Item label="Dinheiro" value="Dinheiro" />
-              <Picker.Item label="Cartão Débito" value="Cartão Débito" />
-              <Picker.Item label="Cartão Crédito" value="Cartão Crédito" />
-            </Picker>
-          </View>
-          </View>
+            {/* PASSO 3: Status de Pagamento */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepNumber}>3</Text>
+                </View>
+                <View>
+                  <Text style={styles.sectionTitle}>Status de Pagamento</Text>
+                  <Text style={styles.sectionSubtitle}>A venda foi paga?</Text>
+                </View>
+              </View>
 
-        {/* Status de Pagamento */}
-        <View style={styles.statusSection}>
-          <View style={styles.statusHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Status de Pagamento</Text>
-              <Text style={styles.statusSubtitle}>
-                {formData.status === 'OK' ? 'Pagamento recebido' : 'Aguardando pagamento'}
-              </Text>
+              <View style={styles.statusGrid}>
+                <TouchableOpacity
+                  onPress={() => setFormData({ ...formData, status: 'OK' })}
+                  style={[
+                    styles.statusButton,
+                    formData.status === 'OK' && styles.statusButtonPaid
+                  ]}
+                >
+                  <Text style={[
+                    styles.statusLabel,
+                    formData.status === 'OK' && styles.statusLabelActive
+                  ]}>
+                    Pago
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setFormData({ ...formData, status: 'PENDENTE' })}
+                  style={[
+                    styles.statusButton,
+                    formData.status === 'PENDENTE' && styles.statusButtonPending
+                  ]}
+                >
+                  <Text style={[
+                    styles.statusLabel,
+                    formData.status === 'PENDENTE' && styles.statusLabelActive
+                  ]}>
+                    Pendente
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <Switch
-              value={formData.status === 'OK'}
-              onValueChange={(value) => setFormData({ 
-                ...formData, 
-                status: value ? 'OK' : 'PENDENTE' 
-              })}
-              color="#2563eb"
-            />
-          </View>
 
-          <View style={styles.statusOptions}>
-            <TouchableOpacity
-              onPress={() => setFormData({ ...formData, status: 'OK' })}
-              style={[
-                styles.statusOption,
-                formData.status === 'OK' && styles.statusOptionActive
-              ]}
-            >
-              <Text style={[
-                styles.statusOptionText,
-                formData.status === 'OK' && styles.statusOptionTextActive
-              ]}>
-                Pago
-              </Text>
-            </TouchableOpacity>
+            {/* Resumo da Venda */}
+            {calcularTotal() > 0 && (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <Text style={styles.summaryTitle}>Resumo da Venda</Text>
+                  <View style={styles.itemCountBadge}>
+                    <Text style={styles.itemCountText}>
+                      {itens.filter(i => i.produto_id).length}
+                    </Text>
+                  </View>
+                </View>
 
-            <TouchableOpacity
-              onPress={() => setFormData({ ...formData, status: 'PENDENTE' })}
-              style={[
-                styles.statusOption,
-                formData.status === 'PENDENTE' && styles.statusOptionActive
-              ]}
-            >
-              <Text style={[
-                styles.statusOptionText,
-                formData.status === 'PENDENTE' && styles.statusOptionTextActive
-              ]}>
-                Pendente
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                {/* Itens */}
+                <View style={styles.summaryItems}>
+                  {itens.map((item, index) => {
+                    if (!item.produto_id || !item.quantidade || !item.preco_unitario) return null;
+                    const produto = produtos.find(p => p.id.toString() === item.produto_id);
+                    if (!produto) return null;
+                    
+                    return (
+                      <View key={index} style={styles.summaryItem}>
+                        <View style={styles.summaryItemInfo}>
+                          <Text style={styles.summaryItemName}>
+                            {produto.tipo} - {produto.sabor}
+                          </Text>
+                          <Text style={styles.summaryItemDetails}>
+                            {item.quantidade}x R$ {parseFloat(item.preco_unitario).toFixed(2)}
+                            {isPromocaoAplicada(item, itens) && <Text style={styles.summaryPromoText}> • Promoção</Text>}
+                          </Text>
+                        </View>
+                        <Text style={styles.summaryItemAmount}>
+                          R$ {calcularSubtotalItem(item).toFixed(2)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
 
-        {/* Resumo */}
-        {formData.preco && formData.quantidade_vendida && formData.produto_id && (
-          <View style={styles.resumoCard}>
-            <Text style={styles.resumoTitle}>Resumo</Text>
-            <View style={styles.resumoItem}>
-              <Text style={styles.resumoLabel}>Valor Total:</Text>
-              <Text style={styles.resumoValue}>
-                R$ {(parseFloat(formData.preco) * parseInt(formData.quantidade_vendida || '1')).toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Botões de Ação */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity 
-            style={styles.cancelButton}
-            onPress={() => router.back()}
-            disabled={saving}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.submitButton, saving && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#ffffff" size={20} />
-            ) : (
-              <Text style={styles.submitButtonText}>Confirmar Venda</Text>
+                {/* Total */}
+                <View style={styles.summaryTotal}>
+                  <Text style={styles.summaryTotalLabel}>Valor Total</Text>
+                  <Text style={styles.summaryTotalValue}>
+                    R$ {calcularTotal().toFixed(2)}
+                  </Text>
+                </View>
+              </View>
             )}
-          </TouchableOpacity>
-        </View>
-        </View>
-      </ScrollView>
+
+            {/* Botões de Ação */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => router.back()}
+                disabled={saving}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color={COLORS.white} size={20} />
+                ) : (
+                  <Text style={styles.submitButtonText}>Confirmar Venda</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -309,16 +572,19 @@ export default function NovaVendaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
   },
   emptyState: {
     flex: 1,
@@ -331,185 +597,406 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textDark,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   emptyButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  header: {
-    marginBottom: 20,
-    paddingTop: 8,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
+  
+  // SEÇÕES
   section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    padding: 20,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    gap: 12,
+  },
+  stepBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.mediumBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNumber: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 13,
-    color: '#6b7280',
-    marginBottom: 16,
+    color: COLORS.textMedium,
   },
-  produtosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  produtoChip: {
-    minWidth: '45%',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
-  },
-  produtoChipActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#2563eb',
-  },
-  produtoChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  produtoChipTextActive: {
-    color: '#ffffff',
-  },
-  produtoChipStock: {
-    fontSize: 11,
-    color: '#9ca3af',
-  },
-  produtoChipStockActive: {
-    color: '#dbeafe',
-  },
+  
+  // INPUT
   inputContainer: {
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 8,
+    fontWeight: '700',
+    color: COLORS.textDark,
+    marginBottom: 10,
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.softGray,
   },
-  row: {
+
+  // PRODUTOS - GRID LAYOUT
+  produtosGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  halfInput: {
+  produtoGridCard: {
     flex: 1,
-  },
-  statusSection: {
-    backgroundColor: '#ffffff',
+    minWidth: '47%',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
-    padding: 20,
-    marginBottom: 16,
+    borderColor: COLORS.borderGray,
+    backgroundColor: COLORS.white,
   },
-  statusHeader: {
+  produtoGridCardActive: {
+    borderColor: COLORS.mediumBlue,
+    backgroundColor: COLORS.mediumBlue,
+  },
+  produtoGridHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  statusSubtitle: {
+  produtoGridHeaderActive: {
+    borderColor: COLORS.mediumBlue,
+  },
+  produtoGridType: {
     fontSize: 13,
-    color: '#6b7280',
-    marginTop: 4,
+    fontWeight: '700',
+    color: COLORS.textDark,
   },
-  statusOptions: {
+  produtoGridTypeActive: {
+    color: COLORS.white,
+  },
+  stockBadgeGrid: {
+    backgroundColor: COLORS.softGray,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  stockBadgeGridActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  stockTextGrid: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMedium,
+  },
+  stockTextGridActive: {
+    color: COLORS.white,
+  },
+  produtoGridSabor: {
+    fontSize: 12,
+    color: COLORS.textMedium,
+    fontWeight: '500',
+  },
+  produtoGridSaborActive: {
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+
+  // CARD DO PRODUTO (COM REMOVR BUTTON)
+  produtoItemCard: {
+    backgroundColor: COLORS.softGray,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    marginTop: 20,
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -10,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.error,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  removeButtonText: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+
+  // QUANTIDADE E PREÇO
+  quantityPriceSection: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  quantityCard: {
+    flex: 1,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  quantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.mediumBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+  },
+  quantityButtonText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  quantityInput: {
+    flex: 1,
+    textAlign: 'center',
+    backgroundColor: COLORS.white,
+  },
+
+  priceCard: {
+    flex: 1,
+  },
+  priceLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  promotionBadge: {
+    backgroundColor: COLORS.pink,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  promotionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  priceInput: {
+    backgroundColor: COLORS.white,
+  },
+  priceInputPromotion: {
+    backgroundColor: 'rgba(236, 72, 153, 0.05)',
+  },
+
+  // ADICIONAR PRODUTO
+  addProductButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: COLORS.mediumBlue,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  addProductButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.mediumBlue,
+  },
+
+  // PAGAMENTO
+  paymentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  paymentButton: {
+    flex: 1,
+    minWidth: '47%',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+  },
+  paymentButtonActive: {
+    borderColor: 'transparent',
+  },
+  paymentLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textDark,
+  },
+  paymentLabelActive: {
+    color: COLORS.white,
+  },
+
+  // STATUS
+  statusGrid: {
     flexDirection: 'row',
     gap: 10,
   },
-  statusOption: {
+  statusButton: {
     flex: 1,
     paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: COLORS.borderGray,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
   },
-  statusOptionActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#dbeafe',
+  statusButtonPaid: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.green,
   },
-  statusOptionText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#6b7280',
+  statusButtonPending: {
+    borderColor: COLORS.warning,
+    backgroundColor: COLORS.warning,
   },
-  statusOptionTextActive: {
-    color: '#2563eb',
+  statusEmoji: {
+    fontSize: 24,
+    marginBottom: 6,
   },
-  resumoCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#2563eb',
-    padding: 20,
+  statusLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textDark,
+  },
+  statusLabelActive: {
+    color: COLORS.white,
+  },
+
+  // RESUMO
+  summaryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: COLORS.mediumBlue,
   },
-  resumoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  resumoItem: {
+  summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  resumoLabel: {
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  itemCountBadge: {
+    backgroundColor: COLORS.mediumBlue,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  itemCountText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryItems: {
+
+    borderTopWidth: 1,
+    borderColor: COLORS.borderGray,
+    paddingVertical: 5,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  summaryItemInfo: {
+    flex: 1,
+  },
+  summaryItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textDark,
+    marginBottom: 6,
+  },
+  summaryItemDetails: {
+    fontSize: 12,
+    color: COLORS.textMedium,
+  },
+  summaryPromoText: {
+    color: COLORS.pink,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  summaryItemAmount: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: '700',
+    color: COLORS.mediumBlue,
   },
-  resumoValue: {
+  summaryTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: COLORS.mediumBlue,
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  summaryTotalValue: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2563eb',
+    fontWeight: '700',
+    color: COLORS.mediumBlue,
   },
+
+  // BOTÕES DE AÇÃO
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -517,21 +1004,21 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.borderGray,
     paddingVertical: 14,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#6b7280',
+    fontWeight: '700',
+    color: COLORS.textMedium,
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -541,20 +1028,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '700',
+    color: COLORS.white,
   },
-  pickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginBottom: 15,
-    overflow: 'hidden'
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-  }
-
 });

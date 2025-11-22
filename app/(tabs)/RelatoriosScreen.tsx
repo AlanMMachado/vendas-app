@@ -1,8 +1,9 @@
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { RelatorioService } from '@/service/relatorioService';
 import { RelatorioResponse } from '@/types/Relatorio';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -56,7 +57,7 @@ export default function RelatoriosScreen() {
       <Header title="Relatórios" subtitle="Análise de desempenho" />
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView 
@@ -164,7 +165,7 @@ export default function RelatoriosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
@@ -183,28 +184,28 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
   periodoContainer: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     padding: 4,
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
   },
   periodoButton: {
     flex: 1,
@@ -213,15 +214,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   periodoButtonActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
   },
   periodoText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   periodoTextActive: {
-    color: '#ffffff',
+    color: COLORS.white,
   },
   resumoGrid: {
     flexDirection: 'row',
@@ -231,16 +232,16 @@ const styles = StyleSheet.create({
   },
   resumoCard: {
     width: '48%',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
   },
   resumoIconContainer: {
     width: 40,
     height: 40,
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -251,25 +252,25 @@ const styles = StyleSheet.create({
   },
   resumoLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 4,
   },
   resumoValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   resumoSubtext: {
     fontSize: 11,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   produtosSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 20,
   },
@@ -282,19 +283,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
-    fontFamily: 'Nunito_600SemiBold',
+    color: COLORS.textDark,
   },
   badge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   produtosList: {
     gap: 12,
@@ -304,24 +306,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     gap: 12,
   },
   produtoRank: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.mediumBlue,
     justifyContent: 'center',
     alignItems: 'center',
   },
   produtoRankText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.white,
   },
   produtoInfo: {
     flex: 1,
@@ -329,16 +331,16 @@ const styles = StyleSheet.create({
   produtoNome: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 2,
   },
   produtoQuantidade: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   produtoValor: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
 });

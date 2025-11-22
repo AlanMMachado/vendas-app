@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { ChartNoAxesColumnIncreasing, FileSpreadsheet, Package, User, Users } from 'lucide-react-native';
+import { ChartNoAxesColumnIncreasing, FileSpreadsheet, Package, Settings, Users } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../../constants/Colors';
@@ -9,6 +9,7 @@ const ICON_COMPONENTS: Record<string, any> = {
   'chart': ChartNoAxesColumnIncreasing,
   'file': FileSpreadsheet,
   'package': Package,
+  'settings': Settings,
   'user': Users,
 };
 
@@ -44,6 +45,9 @@ function FileIcon(props: any) {
 function PackageIcon(props: any) {
   return <TabIcon {...props} icon={'package'} />;
 }
+function SettingsIcon(props: any) {
+  return <TabIcon {...props} icon={'settings'} />;
+}
 function UserIcon(props: any) {
   return <TabIcon {...props} icon={'user'} />;
 }
@@ -55,20 +59,20 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: COLORS.mediumBlue,
-          tabBarInactiveTintColor: COLORS.gray,
+          tabBarInactiveTintColor: COLORS.textLight,
           headerShown: true,
           tabBarStyle: {
             backgroundColor: COLORS.white,
-            borderTopWidth: 0,
-            // espaçamento superior levemente maior para centralizar visualmente
+            borderTopWidth: 1,
+            borderTopColor: COLORS.borderGray,
             paddingTop: Platform.OS === 'ios' ? 14 : 10,
             paddingBottom: Platform.OS === 'ios' ? 16 : 18,
             minHeight: Platform.OS === 'ios' ? 84 : 92,
-            elevation: 10,
-            shadowColor: COLORS.navy,
+            elevation: 8,
+            shadowColor: '#000',
             shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.06,
-            shadowRadius: 6,
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
           },
           tabBarShowLabel: true,
           tabBarIconStyle: { marginTop: 5, alignItems: 'center', justifyContent: 'center' },
@@ -115,7 +119,7 @@ export default function TabLayout() {
             headerShown: false,
             tabBarLabel: ({ focused, color }) => (
               <View style={styles.labelContainer}>
-                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.gray }]} allowFontScaling={false}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.textLight }]} allowFontScaling={false}>
                   Clientes
                 </Text>
                 <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
@@ -132,7 +136,7 @@ export default function TabLayout() {
             headerShown: false,
             tabBarLabel: ({ focused, color }) => (
               <View style={styles.labelContainer}>
-                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.gray }]} allowFontScaling={false}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.textLight }]} allowFontScaling={false}>
                   Relatórios
                 </Text>
                 <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
@@ -141,17 +145,39 @@ export default function TabLayout() {
             tabBarIcon: ({ color, focused }) => <FileIcon color={color} focused={focused} />,
           }}
         />
+
+        <Tabs.Screen
+          name="ConfigScreen"
+          options={{
+            title: 'Configurações',
+            headerShown: false,
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.labelContainer}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.textLight }]} allowFontScaling={false}>
+                  Config
+                </Text>
+                <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
+              </View>
+            ),
+            tabBarIcon: ({ color, focused }) => <SettingsIcon color={color} focused={focused} />,
+          }}
+        />
       </Tabs>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconLabel: {
     fontSize: 12,
     fontWeight: '600',
     marginTop: 0,
     textAlign: 'center',
+    color: COLORS.textMedium,
   },
   labelContainer: {
     alignItems: 'center',
@@ -159,11 +185,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   labelIndicator: {
-    height: 4,
+    height: 3,
     borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 5,
+    marginTop: 6,
     alignSelf: 'center',
-    minWidth: 40,
+    minWidth: 28,
   }
 });

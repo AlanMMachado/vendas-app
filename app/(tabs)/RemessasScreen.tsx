@@ -1,13 +1,14 @@
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { RemessaService } from '@/service/remessaService';
 import { Remessa } from '@/types/Remessa';
+import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { Edit, Trash2 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -98,7 +99,7 @@ export default function RemessasScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView 
@@ -235,7 +236,7 @@ export default function RemessasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     flex: 1,
@@ -249,10 +250,10 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   emptyState: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     padding: 40,
     alignItems: 'center',
   },
@@ -263,32 +264,32 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     textAlign: 'center',
     marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 10,
   },
   emptyButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: 'bold',
   },
   remessaCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 12,
   },
@@ -303,37 +304,39 @@ const styles = StyleSheet.create({
   },
   remessaDateLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 4,
   },
   remessaData: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   statusBadge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
   },
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   observacaoContainer: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
   },
   observacaoText: {
     fontSize: 13,
-    color: '#374151',
+    color: COLORS.textDark,
   },
   progressSection: {
     marginBottom: 16,
@@ -347,36 +350,36 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   progressPercentage: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   progressContainer: {
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.borderGray,
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 4,
   },
   produtosContainer: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
   },
   produtosTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 12,
   },
   produtoItem: {
@@ -387,23 +390,23 @@ const styles = StyleSheet.create({
   },
   produtoNome: {
     fontSize: 13,
-    color: '#374151',
+    color: COLORS.textDark,
     fontWeight: '500',
   },
   produtoBullet: {
     fontSize: 13,
-    color: '#374151',
+    color: COLORS.textDark,
     fontWeight: '500',
     marginBottom: 4,
   },
   produtoQuantidade: {
     fontSize: 13,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
   },
   maisItens: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontStyle: 'italic',
     marginTop: 4,
   },
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
   verDetalhes: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   cardActions: {
     flexDirection: 'row',
@@ -425,17 +428,21 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   deleteCardButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
   fab: {
     position: 'absolute',
@@ -444,7 +451,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -455,7 +462,7 @@ const styles = StyleSheet.create({
   },
   fabText: {
     fontSize: 32,
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: '300',
   },
 });

@@ -1,5 +1,6 @@
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { ClienteService } from '@/service/clienteService';
 import { ProdutoService } from '@/service/produtoService';
 import { SyncService } from '@/service/syncService';
@@ -7,12 +8,12 @@ import { VendaService } from '@/service/vendaService';
 import { Cliente } from '@/types/Cliente';
 import { Produto } from '@/types/Produto';
 import { Venda } from '@/types/Venda';
+import { useFocusEffect } from '@react-navigation/native';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { CheckCircle, Clock, DollarSign, ShoppingCart, XCircle } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -20,7 +21,7 @@ export default function ClienteDetalhesScreen() {
   const { nome } = useLocalSearchParams<{ nome: string }>();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [cliente, setCliente] = useState<(Cliente & {
+  const [cliente, setCliente] = useState<(Omit<Cliente, 'vendas'> & {
     vendas: Venda[];
     vendasPagas: Venda[];
     vendasPendentes: Venda[];
@@ -62,8 +63,8 @@ export default function ClienteDetalhesScreen() {
         }
       }
 
-      // Buscar produtos
-      const produtoIds = [...new Set(vendasCliente.map(v => v.produto_id))];
+      // Buscar produtos para exibir nomes
+      const produtoIds = [...new Set(vendasCliente.flatMap(v => v.itens.map(item => item.produto_id)))];
       const produtosMap: Record<number, Produto> = {};
       for (const id of produtoIds) {
         const produto = await ProdutoService.getById(id);
@@ -108,8 +109,13 @@ export default function ClienteDetalhesScreen() {
   const marcarComoPago = async (venda: Venda) => {
     try {
       await VendaService.updateStatus(venda.id, 'OK');
-      // Sincronizar cliente após mudança de status
-      await SyncService.syncClienteFromVenda(venda);
+      
+      // Carregar venda atualizada e sincronizar cliente
+      const vendaAtualizada = await VendaService.getById(venda.id);
+      if (vendaAtualizada) {
+        await SyncService.syncClienteFromVenda(vendaAtualizada);
+      }
+      
       await carregarCliente(); // Recarregar dados
       setModalPagamentoVisible(false);
       setVendaParaMarcar(null);
@@ -146,7 +152,7 @@ export default function ClienteDetalhesScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView
@@ -229,22 +235,24 @@ export default function ClienteDetalhesScreen() {
                   <View style={styles.vendaInfo}>
                     <View style={styles.vendaHeader}>
                       <Text style={styles.vendaProduto}>
-                        {produtos[venda.produto_id] ?
-                          `${produtos[venda.produto_id].tipo} - ${produtos[venda.produto_id].sabor}` :
-                          'Produto não encontrado'
-                        }
+                        Venda #{venda.id}
                       </Text>
                     </View>
 
                     <View style={styles.vendaDetalhes}>
-                      <Text style={styles.vendaQuantidade}>
-                        {venda.quantidade_vendida} unidade{venda.quantidade_vendida !== 1 ? 's' : ''}
-                      </Text>
+                      {venda.itens.map((item, index) => {
+                        const produto = produtos[item.produto_id];
+                        return (
+                          <Text key={index} style={styles.vendaQuantidade}>
+                            • {produto ? `${produto.tipo} ${produto.sabor}` : 'Produto'} - {item.quantidade}un (R$ {item.preco_unitario.toFixed(2)})
+                          </Text>
+                        );
+                      })}
                     </View>
                   </View>
 
                   <View style={styles.vendaValor}>
-                    <Text style={styles.vendaPreco}>R$ {(venda.preco || 0).toFixed(2)}</Text>
+                    <Text style={styles.vendaPreco}>R$ {venda.total_preco.toFixed(2)}</Text>
                     <Text style={styles.vendaData}>
                       {format(parseISO(venda.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                     </Text>
@@ -279,7 +287,7 @@ export default function ClienteDetalhesScreen() {
       <ConfirmationModal
         visible={modalPagamentoVisible}
         title="Confirmar Pagamento"
-        message={`Marcar a venda de R$ ${(vendaParaMarcar?.preco || 0).toFixed(2)} como paga?`}
+        message={`Marcar a venda de R$ ${(vendaParaMarcar?.total_preco || 0).toFixed(2)} como paga?`}
         onConfirm={() => vendaParaMarcar && marcarComoPago(vendaParaMarcar)}
         onCancel={() => {
           setModalPagamentoVisible(false);
@@ -294,7 +302,7 @@ export default function ClienteDetalhesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
@@ -313,13 +321,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   statusCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 16,
   },
@@ -331,33 +339,36 @@ const styles = StyleSheet.create({
   clienteNome: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 8,
   },
   statusSubtitle: {
     fontSize: 13,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    borderWidth: 1,
   },
   statusDevedor: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.softGray,
+    borderColor: COLORS.error,
   },
   statusEmDia: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
+    borderColor: COLORS.green,
   },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
   statusTextDevedor: {
-    color: '#dc2626',
+    color: COLORS.error,
   },
   statusTextEmDia: {
-    color: '#2563eb',
+    color: COLORS.green,
   },
   metricasGrid: {
     flexDirection: 'row',
@@ -375,40 +386,40 @@ const styles = StyleSheet.create({
   },
   metricaCard: {
     width: '48%',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
     alignItems: 'center',
   },
   metricaCardFull: {
     width: '100%',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
     alignItems: 'center',
   },
   metricaValor: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginTop: 8,
     marginBottom: 4,
   },
   metricaLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     textAlign: 'center',
   },
   dividaCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dc2626',
+    borderWidth: 1,
+    borderColor: COLORS.error,
     padding: 10,
     marginBottom: 16,
   },
@@ -420,30 +431,30 @@ const styles = StyleSheet.create({
   dividaTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#dc2626',
+    color: COLORS.error,
     marginLeft: 8,
   },
   dividaValor: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#dc2626',
+    color: COLORS.error,
     marginBottom: 4,
   },
   dividaSubtext: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.textLight,
   },
   historicoSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 16,
   },
   vendaItem: {
@@ -452,16 +463,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
     marginBottom: 8,
     position: 'relative',
   },
   vendaInfo: {
     flex: 1,
-    paddingRight: 24, // Espaço para o ícone no canto direito
+    paddingRight: 24,
   },
   vendaHeader: {
     marginBottom: 8,
@@ -469,24 +480,23 @@ const styles = StyleSheet.create({
   vendaProduto: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   miniStatusBadge: {
     position: 'absolute',
     top: 0,
     right: 0,
-
   },
   vendaDetalhes: {
     marginBottom: 8,
   },
   vendaQuantidade: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   vendaData: {
     fontSize: 11,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     marginTop: 4,
   },
   vendaValor: {
@@ -496,28 +506,28 @@ const styles = StyleSheet.create({
   vendaPreco: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   marcarPagoBotao: {
-    backgroundColor: '#eb2525ff',
+    backgroundColor: COLORS.error,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     marginTop: 8,
   },
   marcarPagoTexto: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 12,
     fontWeight: 'bold',
   },
   miniStatusPago: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.green,
     borderRadius: 12,
     padding: 4,
   },
   miniStatusPendente: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: COLORS.warning,
     borderRadius: 12,
     padding: 4,
   },

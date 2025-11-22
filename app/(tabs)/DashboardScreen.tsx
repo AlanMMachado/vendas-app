@@ -1,14 +1,15 @@
 import Header from '@/components/Header';
+import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { ProdutoService } from '@/service/produtoService';
 import { RelatorioService } from '@/service/relatorioService';
 import { VendaService } from '@/service/vendaService';
 import { Produto } from '@/types/Produto';
+import { useFocusEffect } from '@react-navigation/native';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
@@ -16,12 +17,12 @@ export default function DashboardScreen() {
   const { state, dispatch } = useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [produtos, setProdutos] = useState<{[key: number]: Produto}>({});
   const [kpis, setKpis] = useState({
     totalVendido: 0,
     totalPendente: 0,
     progressoMeta: 0
   });
-  const [produtos, setProdutos] = useState<Record<number, Produto>>({});
   const [refreshing, setRefreshing] = useState(false);
 
   // Recarregar dados sempre que a tela ganhar foco
@@ -39,9 +40,9 @@ export default function DashboardScreen() {
       const vendasRecentes = await VendaService.getVendasRecentes(10);
       dispatch({ type: 'SET_VENDAS', payload: vendasRecentes });
       
-      // Buscar produtos para as vendas
-      const produtoIds = [...new Set(vendasRecentes.map(v => v.produto_id))];
-      const produtosMap: Record<number, Produto> = {};
+      // Buscar produtos para exibir nomes nas vendas
+      const produtoIds = [...new Set(vendasRecentes.flatMap(v => v.itens.map(item => item.produto_id)))];
+      const produtosMap: {[key: number]: Produto} = {};
       for (const id of produtoIds) {
         const produto = await ProdutoService.getById(id);
         if (produto) {
@@ -77,6 +78,12 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
+  // Garantir que o estado produtos seja usado
+  const getProdutoNome = (produtoId: number) => {
+    const produto = produtos[produtoId];
+    return produto ? `${produto.tipo} ${produto.sabor}` : 'Produto';
+  };
+
   return (
     <View style={styles.container}>
       <Header 
@@ -85,7 +92,7 @@ export default function DashboardScreen() {
       />
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
         <ScrollView 
@@ -174,17 +181,20 @@ export default function DashboardScreen() {
                 <View key={venda.id} style={styles.vendaItem}>
                   <View style={styles.vendaInfo}>
                     <Text style={styles.vendaCliente}>{venda.cliente || 'Cliente'}</Text>
-                    {produtos[venda.produto_id] && (
-                      <Text style={styles.vendaProduto}>
-                        • {produtos[venda.produto_id].tipo} {produtos[venda.produto_id].sabor} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{venda.quantidade_vendida}</Text> un
-                      </Text>
-                    )}
+                    {venda.itens.map((item, index) => {
+                      const produtoNome = getProdutoNome(item.produto_id);
+                      return (
+                        <Text key={index} style={styles.vendaProduto}>
+                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text>un (R$ {item.preco_unitario.toFixed(2)})
+                        </Text>
+                      );
+                    })}
                     <Text style={styles.vendaData}>
                       {format(parseISO(venda.data), 'HH:mm', { locale: ptBR })}
                     </Text>
                   </View>
                   <View style={styles.vendaValores}>
-                    <Text style={styles.vendaPreco}>R$ {venda.preco.toFixed(2)}</Text>
+                    <Text style={styles.vendaPreco}>R$ {venda.total_preco.toFixed(2)}</Text>
                     <View style={[
                       styles.statusBadge,
                       venda.status === 'OK' ? styles.statusPago : styles.statusPendente
@@ -212,7 +222,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
   },
   content: {
     padding: 16,
@@ -230,16 +240,16 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 16,
   },
   kpiIconContainer: {
     width: 40,
     height: 40,
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -250,25 +260,25 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '600',
     marginBottom: 4,
   },
   kpiValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   kpiSubtext: {
     fontSize: 11,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   metaCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 16,
   },
@@ -281,23 +291,23 @@ const styles = StyleSheet.create({
   metaTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
   },
   metaPercentage: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   progressContainer: {
     height: 12,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.borderGray,
     borderRadius: 6,
     overflow: 'hidden',
     marginBottom: 12,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 6,
   },
   metaFooter: {
@@ -306,7 +316,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     fontWeight: '500',
   },
   actionsContainer: {
@@ -316,37 +326,37 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.mediumBlue,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: 'bold',
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#2563eb',
+    borderColor: COLORS.mediumBlue,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
     fontSize: 15,
     fontWeight: 'bold',
   },
   vendasSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
     padding: 20,
   },
   sectionHeader: {
@@ -358,19 +368,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
-    fontFamily: 'Nunito_600SemiBold',
+    color: COLORS.textDark,
   },
   badge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderGray,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: COLORS.mediumBlue,
   },
   emptyState: {
     alignItems: 'center',
@@ -383,12 +394,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   emptySubtext: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.textMedium,
   },
   vendasList: {
     gap: 12,
@@ -399,10 +410,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.softGray,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.borderGray,
   },
   vendaInfo: {
     flex: 1,
@@ -411,17 +422,17 @@ const styles = StyleSheet.create({
   vendaCliente: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 2,
   },
   vendaProduto: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
     marginBottom: 2,
   },
   vendaData: {
     fontSize: 12,
-    color: '#6b7280',
+    color: COLORS.textMedium,
   },
   vendaValores: {
     alignItems: 'flex-end',
@@ -429,7 +440,7 @@ const styles = StyleSheet.create({
   vendaPreco: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 4,
   },
   statusBadge: {
@@ -438,19 +449,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusPago: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.green,
   },
   statusPendente: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.warning,
   },
   statusText: {
     fontSize: 11,
     fontWeight: 'bold',
   },
   statusTextPago: {
-    color: '#2563eb',
+    color: COLORS.white,
   },
   statusTextPendente: {
-    color: '#6b7280',
+    color: COLORS.white,
   },
 });

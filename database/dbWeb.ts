@@ -3,6 +3,7 @@ type Row = Record<string, any>;
 let remessas: Row[] = [];
 let produtos: Row[] = [];
 let vendas: Row[] = [];
+let itens_venda: Row[] = [];
 
 let nextId = 1;
 
@@ -24,15 +25,22 @@ export const db = {
     }
 
     if (query.startsWith('INSERT INTO vendas')) {
-      const [produto_id, cliente, quantidade_vendida, preco, data, status] = params;
-      const venda = { id: nextId++, produto_id, cliente, quantidade_vendida, preco, data, status, created_at: new Date().toISOString() };
+      const [cliente, data, status, metodo_pagamento, total_preco] = params;
+      const venda = { id: nextId++, cliente, data, status, metodo_pagamento, total_preco, created_at: new Date().toISOString() };
       vendas.push(venda);
+      return { lastInsertRowId: venda.id };
+    }
+
+    if (query.startsWith('INSERT INTO itens_venda')) {
+      const [venda_id, produto_id, quantidade, preco_unitario] = params;
+      const item = { id: nextId++, venda_id, produto_id, quantidade, preco_unitario, created_at: new Date().toISOString() };
+      itens_venda.push(item);
 
       // atualiza quantidade vendida do produto
       const produto = produtos.find(p => p.id === produto_id);
-      if (produto) produto.quantidade_vendida += quantidade_vendida;
+      if (produto) produto.quantidade_vendida += quantidade;
 
-      return { lastInsertRowId: venda.id };
+      return { lastInsertRowId: item.id };
     }
 
     // UPDATE produtos
@@ -70,6 +78,7 @@ export const db = {
     if (query.includes('FROM remessas')) return remessas as any;
     if (query.includes('FROM produtos')) return produtos as any;
     if (query.includes('FROM vendas')) return vendas as any;
+    if (query.includes('FROM itens_venda')) return itens_venda as any;
 
     return [];
   },
@@ -92,5 +101,6 @@ export function initDatabase() {
   remessas = [];
   produtos = [];
   vendas = [];
+  itens_venda = [];
   nextId = 1;
 }
