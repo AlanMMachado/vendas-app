@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
+import { ConfigService } from '../service/configService';
 import { SyncService } from '../service/syncService';
 import { Remessa } from '../types/Remessa';
 import { Venda } from '../types/Venda';
-import { Configuracao, ConfiguracaoResponse } from '../types/Configuracao';
 
 interface AppState {
   remessaAtiva: Remessa | null;
@@ -63,12 +63,38 @@ function appReducer(state: AppState, action: AppAction): AppState {
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  recarregarConfiguracoes: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // Função para recarregar configurações
+  const recarregarConfiguracoes = async () => {
+    try {
+      const configs = await ConfigService.getAllAsRecord();
+      dispatch({ type: 'SET_CONFIGURACOES', payload: configs });
+    } catch (error) {
+      console.error('Erro ao recarregar configurações:', error);
+      throw error;
+    }
+  };
+
+  // Inicializar configurações padrão
+  useEffect(() => {
+    const inicializarConfigs = async () => {
+      try {
+        await ConfigService.inicializarConfiguracoesPadrao();
+        await recarregarConfiguracoes();
+      } catch (error) {
+        console.error('Erro ao inicializar configurações:', error);
+      }
+    };
+
+    inicializarConfigs();
+  }, []);
 
   // Sincronizar clientes na inicialização do app
   useEffect(() => {
@@ -100,7 +126,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.vendas]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, recarregarConfiguracoes }}>
       {children}
     </AppContext.Provider>
   );

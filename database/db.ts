@@ -75,5 +75,14 @@ export function initDatabase() {
             FOREIGN KEY(venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
             FOREIGN KEY(produto_id) REFERENCES produtos(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS configuracoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chave TEXT UNIQUE NOT NULL,
+            valor TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'string',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
     `);
 }

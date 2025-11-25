@@ -13,15 +13,14 @@ export default function ConfigScreen() {
     {
       title: 'Produtos',
       description: 'Configure tipos de produto, preços base e promoções',
-      onPress: () => router.push('/config/produtos'),
+      onPress: () => router.push('/config/Produtos'),
       icon: Package
     },
     {
-      title: 'Sistema',
-      description: 'Configurações gerais do sistema',
-      onPress: () => {/* TODO: implementar */},
-      icon: Settings,
-      disabled: true
+      title: 'Metas',
+      description: 'Configure metas diárias de vendas',
+      onPress: () => router.push('/config/Metas'),
+      icon: Settings
     }
   ];
 
@@ -37,24 +36,23 @@ export default function ConfigScreen() {
               <TouchableOpacity
                 key={index}
                 onPress={item.onPress}
-                style={[styles.configItem, item.disabled && styles.configItemDisabled]}
-                disabled={item.disabled}
+                style={styles.configItem}
                 activeOpacity={0.7}
               >
                 <View style={styles.configItemContent}>
-                  <View style={[styles.configIconContainer, item.disabled && styles.configIconContainerDisabled]}>
-                    <IconComponent size={24} color={item.disabled ? COLORS.textLight : COLORS.mediumBlue} />
+                  <View style={styles.configIconContainer}>
+                    <IconComponent size={24} color={COLORS.mediumBlue} />
                   </View>
                   <View style={styles.configText}>
-                    <Text style={[styles.configTitle, item.disabled && styles.configTitleDisabled]}>
+                    <Text style={styles.configTitle}>
                       {item.title}
                     </Text>
-                    <Text style={[styles.configDescription, item.disabled && styles.configDescriptionDisabled]}>
+                    <Text style={styles.configDescription}>
                       {item.description}
                     </Text>
                   </View>
                 </View>
-                {!item.disabled && <ChevronRight size={20} color={COLORS.textLight} />}
+                <ChevronRight size={20} color={COLORS.textLight} />
               </TouchableOpacity>
             );
           })}
@@ -86,9 +84,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  configItemDisabled: {
-    opacity: 0.5,
-  },
   configItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -103,9 +98,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  configIconContainerDisabled: {
-    backgroundColor: COLORS.borderGray,
-  },
   configText: {
     flex: 1,
   },
@@ -115,14 +107,8 @@ const styles = StyleSheet.create({
     color: COLORS.textDark,
     marginBottom: 4,
   },
-  configTitleDisabled: {
-    color: COLORS.textLight,
-  },
   configDescription: {
     fontSize: 14,
     color: COLORS.textMedium,
-  },
-  configDescriptionDisabled: {
-    color: COLORS.textLight,
   },
 });

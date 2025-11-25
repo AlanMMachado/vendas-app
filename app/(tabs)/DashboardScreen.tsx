@@ -14,15 +14,17 @@ import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from '
 import { ActivityIndicator, Text } from 'react-native-paper';
 
 export default function DashboardScreen() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, recarregarConfiguracoes } = useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [produtos, setProdutos] = useState<{[key: number]: Produto}>({});
   const [kpis, setKpis] = useState({
     totalVendido: 0,
     totalPendente: 0,
-    progressoMeta: 0
+    progressoPago: 0,
+    progressoTotal: 0
   });
+  const [metaDiariaValor, setMetaDiariaValor] = useState(200);
   const [refreshing, setRefreshing] = useState(false);
 
   // Recarregar dados sempre que a tela ganhar foco
@@ -51,18 +53,24 @@ export default function DashboardScreen() {
       }
       setProdutos(produtosMap);
       
+      // Recarregar configurações mais recentes do banco
+      await recarregarConfiguracoes();
+      
       const relatorio = await RelatorioService.gerarRelatorio({ 
         periodo: 'dia',
         data_inicio: hoje,
         data_fim: hoje
       });
       
-      const metaDiariaValor = 200;
+      const metaValor = state.configuracoes.meta_diaria_valor || 200;
+      setMetaDiariaValor(metaValor);
+      const totalGeral = relatorio.total_vendido + relatorio.total_pendente;
       
       setKpis({
         totalVendido: relatorio.total_vendido,
         totalPendente: relatorio.total_pendente,
-        progressoMeta: Math.min((relatorio.total_vendido / metaDiariaValor) * 100, 100)
+        progressoPago: Math.min((relatorio.total_vendido / metaValor) * 100, 100),
+        progressoTotal: Math.min((totalGeral / metaValor) * 100, 100)
       });
       
     } catch (error) {
@@ -128,16 +136,20 @@ export default function DashboardScreen() {
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitle}>Meta Diária</Text>
-            <Text style={styles.metaPercentage}>{kpis.progressoMeta.toFixed(0)}%</Text>
+            <Text style={styles.metaPercentage}>{kpis.progressoTotal.toFixed(0)}%</Text>
           </View>
           
           <View style={styles.progressContainer}>
-            <View style={[styles.progressFill, { width: `${kpis.progressoMeta}%` }]} />
+            {/* Barra de vendas pendentes (atrás) */}
+            <View style={[styles.progressFillPendente, { width: `${kpis.progressoTotal}%` }]} />
+            {/* Barra de vendas pagas (frente) */}
+            <View style={[styles.progressFillPago, { width: `${kpis.progressoPago}%` }]} />
           </View>
           
           <View style={styles.metaFooter}>
-            <Text style={styles.metaText}>R$ {kpis.totalVendido.toFixed(2)} de R$ 200,00</Text>
-            <Text style={styles.metaText}>Faltam R$ {(200 - kpis.totalVendido).toFixed(2)}</Text>
+            <Text style={[styles.metaText, styles.metaTextPago]}>Pago: R$ {kpis.totalVendido.toFixed(2)}</Text>
+            <Text style={[styles.metaText, styles.metaTextPendente]}>Pendente: R$ {kpis.totalPendente.toFixed(2)}</Text>
+            <Text style={styles.metaText}>Total: R$ {(kpis.totalVendido + kpis.totalPendente).toFixed(2)} de R$ {metaDiariaValor.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -305,19 +317,38 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
   },
-  progressFill: {
+  progressFillPago: {
     height: '100%',
     backgroundColor: COLORS.mediumBlue,
     borderRadius: 6,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  progressFillPendente: {
+    height: '100%',
+    backgroundColor: COLORS.warning,
+    borderRadius: 6,
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   metaFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    gap: 4,
   },
   metaText: {
     fontSize: 12,
     color: COLORS.textMedium,
     fontWeight: '500',
+  },
+  metaTextPago: {
+    color: COLORS.mediumBlue,
+    fontWeight: '600',
+  },
+  metaTextPendente: {
+    color: COLORS.warning,
+    fontWeight: '600',
   },
   actionsContainer: {
     flexDirection: 'row',
