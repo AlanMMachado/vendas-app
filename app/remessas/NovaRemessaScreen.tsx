@@ -111,7 +111,7 @@ export default function NovaRemessaScreen() {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           {/* Seleção de Produtos Configurados */}
-          <Text style={styles.sectionTitle}>Produtos Disponíveis</Text>
+          <Text style={styles.sectionTitle}>Produtos</Text>
           <Text style={styles.sectionSubtitle}>Selecione os produtos para adicionar à remessa</Text>
 
           {produtosConfig.length === 0 ? (
@@ -137,7 +137,7 @@ export default function NovaRemessaScreen() {
                   </Text>
                   {config.preco_promocao && (
                     <Text style={styles.produtoConfigPromocao}>
-                      Promo: R$ {config.preco_promocao.toFixed(2)} ({config.quantidade_promocao}+)
+                      Promo: R$ {config.preco_promocao.toFixed(2)} ({config.quantidade_promocao} un)
                     </Text>
                   )}
                 </TouchableOpacity>

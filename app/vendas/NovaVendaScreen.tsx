@@ -21,9 +21,7 @@ export default function NovaVendaScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [itens, setItens] = useState<ItemVendaForm[]>([
-    { produto_id: '', quantidade: '1', preco_base: '',preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }
-  ]);
+  const [itens, setItens] = useState<ItemVendaForm[]>([]);
   const [formData, setFormData] = useState({
     cliente: '',
     status: 'OK' as 'OK' | 'PENDENTE',
@@ -58,51 +56,52 @@ export default function NovaVendaScreen() {
     }
   };
 
-  const incrementarQuantidade = (index: number) => {
-    const novosItens = [...itens];
-    const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
-    novosItens[index].quantidade = (quantidadeAtual + 1).toString();
-    const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
-    setItens(itensComPrecosAtualizados);
-  };
+  const setProductQuantidade = (produtoId: string, quantidade: number) => {
+    const produto = produtos.find(p => p.id.toString() === produtoId);
+    if (!produto) return;
 
-  const decrementarQuantidade = (index: number) => {
-    const novosItens = [...itens];
-    const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
-    if (quantidadeAtual > 1) {
-      novosItens[index].quantidade = (quantidadeAtual - 1).toString();
-      const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
-      setItens(itensComPrecosAtualizados);
+    const estoqueDisponivel = produto.quantidade_inicial - produto.quantidade_vendida;
+    
+    // Validar quantidade máxima
+    if (quantidade > estoqueDisponivel) {
+      quantidade = estoqueDisponivel;
     }
-  };
 
-  const adicionarItem = () => {
-    setItens([...itens, { produto_id: '', quantidade: '1', preco_base: '', preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }]);
-  };
-
-  const removerItem = (index: number) => {
-    if (itens.length > 1) {
-      setItens(itens.filter((_, i) => i !== index));
-    }
-  };
-
-  const atualizarItem = (index: number, campo: keyof ItemVendaForm, valor: string) => {
-    const novosItens = [...itens];
-    novosItens[index][campo] = valor;
-
-    if (campo === 'produto_id' || campo === 'quantidade') {
-      const produtoId = novosItens[index].produto_id;
-      if (produtoId) {
-        const produto = produtos.find(p => p.id.toString() === produtoId);
-        if (produto) {
-          const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
-          setItens(itensComPrecosAtualizados);
-          return;
-        }
+    if (quantidade <= 0) {
+      // Remover o produto se quantidade é 0
+      const novosItens = itens.filter(item => item.produto_id !== produtoId);
+      setItens(novosItens);
+    } else {
+      // Verificar se o produto já existe nos itens
+      const itemExistente = itens.findIndex(item => item.produto_id === produtoId);
+      
+      if (itemExistente >= 0) {
+        // Atualizar quantidade do item existente
+        const novosItens = [...itens];
+        novosItens[itemExistente].quantidade = quantidade.toString();
+        const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
+        setItens(itensComPrecosAtualizados);
+      } else {
+        // Criar novo item
+        const novoItem: ItemVendaForm = {
+          produto_id: produtoId,
+          quantidade: quantidade.toString(),
+          preco_base: '',
+          preco_desconto: '',
+          subtotal: '',
+          quantidade_com_desconto: '0',
+          quantidade_sem_desconto: '0'
+        };
+        const novosItens = [...itens, novoItem];
+        const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
+        setItens(itensComPrecosAtualizados);
       }
     }
+  };
 
-    setItens(novosItens);
+  const getProductQuantidade = (produtoId: string): number => {
+    const item = itens.find(i => i.produto_id === produtoId);
+    return item ? parseInt(item.quantidade) || 0 : 0;
   };
 
   const calcularTotal = () => {
@@ -210,102 +209,78 @@ export default function NovaVendaScreen() {
                 </View>
                 <View>
                   <Text style={styles.sectionTitle}>Selecione os Produtos</Text>
-                  <Text style={styles.sectionSubtitle}>Escolha e defina as quantidades</Text>
+                  <Text style={styles.sectionSubtitle}>Defina as quantidades</Text>
                 </View>
               </View>
 
-              {/* Cards de Produtos */}
-              {itens.map((item, index) => (
-                <View key={index} style={styles.produtoItemCard}>
-                  {itens.length > 1 && (
-                    <TouchableOpacity 
-                      onPress={() => removerItem(index)}
-                      style={styles.removeButton}
+              {/* Lista de Produtos */}
+              <View style={styles.produtosListContainer}>
+                {produtos.map((produto) => {
+                  const estoque = produto.quantidade_inicial - produto.quantidade_vendida;
+                  const quantidadeSelecionada = getProductQuantidade(produto.id.toString());
+
+                  return (
+                    <View
+                      key={produto.id}
+                      style={[
+                        styles.produtoListItem,
+                        quantidadeSelecionada > 0 && styles.produtoListItemSelected
+                      ]}
                     >
-                      <Text style={styles.removeButtonText}>✕</Text>
-                    </TouchableOpacity>
-                  )}
+                      {/* Info do Produto */}
+                      <View style={styles.produtoListInfo}>
+                        <Text style={styles.produtoListName}>
+                          {produto.tipo}
+                          {produto.sabor ? ` - ${produto.sabor}` : ''}
+                        </Text>
+                        <View style={styles.produtoListStock}>
+                          <Text style={styles.produtoListStockText}>
+                            {estoque} em estoque
+                          </Text>
+                        </View>
+                      </View>
 
-                  {/* Seleção de Produto */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Produto</Text>
-                    <View style={styles.produtosGrid}>
-                      {produtos.map((produto) => {
-                        const isSelected = item.produto_id === produto.id.toString();
-                        const estoque = produto.quantidade_inicial - produto.quantidade_vendida;
-                        
-                        return (
+                      {/* Seletor de Quantidade */}
+                        <View style={styles.produtoListQuantityControl}>
                           <TouchableOpacity
-                            key={produto.id}
-                            onPress={() => atualizarItem(index, 'produto_id', produto.id.toString())}
+                            onPress={() => setProductQuantidade(produto.id.toString(), quantidadeSelecionada - 1)}
                             style={[
-                              styles.produtoGridCard,
-                              isSelected && styles.produtoGridCardActive
+                              styles.quantityButtonSmall,
+                              quantidadeSelecionada <= 0 && styles.quantityButtonSmallDisabled
                             ]}
+                            disabled={quantidadeSelecionada <= 0}
                           >
-                            <View style={[styles.produtoGridHeader, isSelected && styles.produtoGridHeaderActive]}>
-                              <Text style={[styles.produtoGridType, isSelected && styles.produtoGridTypeActive]}>
-                                {produto.tipo}
-                              </Text>
-                              <View style={[styles.stockBadgeGrid, isSelected && styles.stockBadgeGridActive]}>
-                                <Text style={[styles.stockTextGrid, isSelected && styles.stockTextGridActive]}>
-                                  {estoque}
-                                </Text>
-                              </View>
-                            </View>
-                            <Text style={[styles.produtoGridSabor, isSelected && styles.produtoGridSaborActive]}>
-                              {produto.sabor}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-
-                  {/* Quantidade e Preço - Apenas se produto selecionado */}
-                  {item.produto_id && (
-                    <View style={styles.quantityPriceSection}>
-                      {/* Quantidade */}
-                      <View style={styles.quantityCard}>
-                        <Text style={styles.label}>Qtd</Text>
-                        <View style={styles.quantityControls}>
-                          <TouchableOpacity
-                            onPress={() => decrementarQuantidade(index)}
-                            style={[styles.quantityButton, parseInt(item.quantidade) <= 1 && styles.quantityButtonDisabled]}
-                            disabled={parseInt(item.quantidade) <= 1}
-                          >
-                            <Text style={styles.quantityButtonText}>−</Text>
+                            <Text style={styles.quantityButtonSmallText}>−</Text>
                           </TouchableOpacity>
                           <TextInput
-                            value={item.quantidade}
-                            onChangeText={(text) => atualizarItem(index, 'quantidade', text)}
+                            value={quantidadeSelecionada.toString()}
+                            onChangeText={(text) => {
+                              const num = parseInt(text) || 0;
+                              setProductQuantidade(produto.id.toString(), num);
+                            }}
                             keyboardType="numeric"
-                            style={styles.quantityInput}
+                            style={styles.quantityInputSmall}
                             mode="outlined"
                             outlineColor={COLORS.borderGray}
                             activeOutlineColor={COLORS.mediumBlue}
                           />
                           <TouchableOpacity
-                            onPress={() => incrementarQuantidade(index)}
-                            style={styles.quantityButton}
+                            onPress={() => setProductQuantidade(produto.id.toString(), quantidadeSelecionada + 1)}
+                            style={styles.quantityButtonSmall}
+                            disabled={quantidadeSelecionada >= estoque}
                           >
-                            <Text style={styles.quantityButtonText}>+</Text>
+                            <Text style={styles.quantityButtonSmallText}>+</Text>
                           </TouchableOpacity>
                         </View>
-                      </View>
                     </View>
-                  )}
-                </View>
-              ))}
+                  );
+                })}
+              </View>
 
-              {/* Botão Adicionar Produto */}
-              {itens.length < produtos.length && (
-                <TouchableOpacity
-                  onPress={adicionarItem}
-                  style={styles.addProductButton}
-                >
-                  <Text style={styles.addProductButtonText}>+ Adicionar Produto</Text>
-                </TouchableOpacity>
+              {produtos.length === 0 && (
+                <View style={styles.emptyListMessage}>
+                  <Text style={styles.emptyListText}>Nenhum produto disponível</Text>
+                </View>
               )}
             </View>
 
@@ -594,136 +569,85 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.softGray,
   },
 
-  // PRODUTOS - GRID LAYOUT
-  produtosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // PRODUTOS - LISTA LAYOUT
+  produtosListContainer: {
     gap: 10,
   },
-  produtoGridCard: {
-    flex: 1,
-    minWidth: '47%',
+  produtoListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 2,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: COLORS.borderGray,
     backgroundColor: COLORS.white,
   },
-  produtoGridCardActive: {
+  produtoListItemSelected: {
     borderColor: COLORS.mediumBlue,
-    backgroundColor: COLORS.mediumBlue,
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
   },
-  produtoGridHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  produtoListInfo: {
+    flex: 1,
+    marginRight: 12,
   },
-  produtoGridHeaderActive: {
-    borderColor: COLORS.mediumBlue,
-  },
-  produtoGridType: {
-    fontSize: 13,
+  produtoListName: {
+    fontSize: 14,
     fontWeight: '700',
     color: COLORS.textDark,
+    marginBottom: 4,
   },
-  produtoGridTypeActive: {
-    color: COLORS.white,
-  },
-  stockBadgeGrid: {
-    backgroundColor: COLORS.softGray,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  stockBadgeGridActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  stockTextGrid: {
-    fontSize: 11,
-    fontWeight: '600',
+  produtoListNameDisabled: {
     color: COLORS.textMedium,
   },
-  stockTextGridActive: {
-    color: COLORS.white,
+  produtoListStock: {
+    marginTop: 4,
   },
-  produtoGridSabor: {
+  produtoListStockText: {
     fontSize: 12,
     color: COLORS.textMedium,
     fontWeight: '500',
   },
-  produtoGridSaborActive: {
-    color: 'rgba(255, 255, 255, 0.9)',
+  produtoListStockTextDisabled: {
+    color: COLORS.textMedium,
   },
-
-  // CARD DO PRODUTO (COM REMOVR BUTTON)
-  produtoItemCard: {
-    backgroundColor: COLORS.softGray,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
-    marginTop: 20,
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: COLORS.borderGray,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: -10,
-    right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.error,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.error,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  removeButtonText: {
-    color: COLORS.white,
-    fontSize: 20,
-    fontWeight: '600',
-  },
-
-  // QUANTIDADE E PREÇO
-  quantityPriceSection: {
+  produtoListQuantityControl: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  quantityCard: {
-    flex: 1,
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     alignItems: 'center',
   },
-  quantityButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+  quantityButtonSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: COLORS.mediumBlue,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  quantityButtonDisabled: {
+  quantityButtonSmallDisabled: {
     opacity: 0.5,
   },
-  quantityButtonText: {
+  quantityButtonSmallText: {
     color: COLORS.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
-  quantityInput: {
-    flex: 1,
+  quantityInputSmall: {
+    width: 50,
+    height: 36,
     textAlign: 'center',
     backgroundColor: COLORS.white,
+    fontSize: 14,
+  },
+  emptyListMessage: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyListText: {
+    fontSize: 13,
+    color: COLORS.textMedium,
+    fontWeight: '500',
   },
 
   priceCard: {
@@ -753,23 +677,6 @@ const styles = StyleSheet.create({
   priceInputPromotion: {
     backgroundColor: 'rgba(236, 72, 153, 0.05)',
   },
-
-  // ADICIONAR PRODUTO
-  addProductButton: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: COLORS.mediumBlue,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  addProductButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.mediumBlue,
-  },
-
-  // PAGAMENTO
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

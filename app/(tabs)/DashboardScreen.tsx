@@ -192,18 +192,16 @@ export default function DashboardScreen() {
               {state.vendas.map((venda) => (
                 <View key={venda.id} style={styles.vendaItem}>
                   <View style={styles.vendaInfo}>
-                    <Text style={styles.vendaCliente}>{venda.cliente || 'Cliente'}</Text>
+                    <Text style={styles.vendaCliente}>
+                      {venda.cliente || 'Cliente'} - {format(parseISO(venda.data), 'HH:mm', { locale: ptBR })}</Text>
                     {venda.itens.map((item, index) => {
                       const produtoNome = getProdutoNome(item.produto_id);
                       return (
                         <Text key={index} style={styles.vendaProduto}>
-                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text>un (R$ {item.subtotal.toFixed(2)})
+                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text> (R$ {item.subtotal.toFixed(2)})
                         </Text>
                       );
                     })}
-                    <Text style={styles.vendaData}>
-                      {format(parseISO(venda.data), 'HH:mm', { locale: ptBR })}
-                    </Text>
                   </View>
                   <View style={styles.vendaValores}>
                     <Text style={styles.vendaPreco}>R$ {venda.total_preco.toFixed(2)}</Text>
