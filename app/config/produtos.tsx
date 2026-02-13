@@ -1,20 +1,12 @@
 import Header from '@/components/Header';
 import { COLORS } from '@/constants/Colors';
 import { ProdutoConfigService } from '@/service/produtoConfigService';
-import { ProdutoConfig, ProdutoConfigCreateParams } from '@/types/ProdutoConfig';
+import { ProdutoConfig, ProdutoConfigCreateParams, ProdutoConfigForm } from '@/types/ProdutoConfig';
 import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Dialog, Portal, Text, TextInput } from 'react-native-paper';
-
-interface ProdutoConfigForm {
-  tipo: string;
-  tipoCustomizado: string;
-  preco_base: string;
-  preco_promocao: string;
-  quantidade_promocao: string;
-}
 
 export default function ConfigProdutosScreen() {
   const router = useRouter();

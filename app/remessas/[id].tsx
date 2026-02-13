@@ -306,7 +306,7 @@ export default function DetalhesRemessaScreen() {
                       const produto = getProdutoById(item.produto_id);
                       return produto ? (
                         <Text key={`${venda.id}-${itemIndex}`} style={styles.vendaProduto}>
-                          {produto.tipo} - {produto.sabor} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''} x R$ {item.preco_unitario.toFixed(2)})
+                          {produto.tipo} - {produto.sabor} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''}) R$ {item.subtotal.toFixed(2)}
                         </Text>
                       ) : null;
                     })}

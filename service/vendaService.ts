@@ -1,10 +1,135 @@
 import { db } from '@/database/db';
-import { ItemVenda, Venda, VendaCreateParams, VendaUpdateParams } from '../types/Venda';
+import { Produto } from '../types/Produto';
+import { ItemVenda, ItemVendaForm, Venda, VendaCreateParams, VendaUpdateParams } from '../types/Venda';
+
+export const calcularSubtotalComLotes = (
+    quantidade: number,
+    preco_base: number,
+    preco_promocao: number | null | undefined,
+    quantidade_promocao: number | null | undefined
+): number => {
+    if (!preco_promocao || !quantidade_promocao || quantidade < quantidade_promocao) {
+        return quantidade * preco_base;
+    }
+
+    const numLotesPromocao = Math.floor(quantidade / quantidade_promocao);
+    const itensComPrecoPromocao = numLotesPromocao * quantidade_promocao;
+    const unidadesRestantes = quantidade % quantidade_promocao;
+    const subtotalPromocional = itensComPrecoPromocao * preco_promocao;
+    const subtotalNormal = unidadesRestantes * preco_base;
+
+    return subtotalPromocional + subtotalNormal;
+};
+
+export const verificarPromocaoAplicada = (
+    item: ItemVendaForm,
+    todosItens: ItemVendaForm[],
+    produtos: Produto[]
+): boolean => {
+    if (!item.produto_id) return false;
+    const produto = produtos.find(p => p.id.toString() === item.produto_id);
+    if (!produto || !produto.preco_promocao || !produto.quantidade_promocao) return false;
+
+    // Calcular quantidade total do tipo
+    const quantidadeTotalTipo = todosItens.reduce((total, itemAtual) => {
+        if (itemAtual.produto_id && itemAtual.quantidade) {
+            const itemProduto = produtos.find(p => p.id.toString() === itemAtual.produto_id);
+            if (itemProduto && itemProduto.tipo === produto.tipo) {
+                return total + parseInt(itemAtual.quantidade);
+            }
+        }
+        return total;
+    }, 0);
+
+    // Verifica se há pelo menos um lote completo
+    return quantidadeTotalTipo >= produto.quantidade_promocao;
+};
+
+export const recalcularTodosPrecos = (itensParaRecalcular: ItemVendaForm[], produtos: Produto[]): ItemVendaForm[] => {
+    // Criar mapa de items com índice e produto
+    const itensComProduto = itensParaRecalcular.map((item, index) => {
+        const produto = produtos.find(p => p.id.toString() === item.produto_id);
+        return { item, index, produto };
+    });
+
+    // Agrupar por tipo de produto para calcular promoção globalmente
+    const porTipo: { [tipo: string]: typeof itensComProduto } = {};
+    
+    for (const entry of itensComProduto) {
+        if (!entry.produto) continue;
+        const tipo = entry.produto.tipo;
+        if (!porTipo[tipo]) {
+            porTipo[tipo] = [];
+        }
+        porTipo[tipo].push(entry);
+    }
+
+    // Recalcular preços considerando quantidade total por tipo
+    const resultado = [...itensParaRecalcular];
+
+    for (const tipo in porTipo) {
+        const grupo = porTipo[tipo];
+        const exemploProduto = grupo[0].produto!;
+
+        // Calcular quantidade total do tipo
+        const quantidadeTotal = grupo.reduce((sum, entry) => {
+            return sum + (parseInt(entry.item.quantidade) || 0);
+        }, 0);
+
+        if (!exemploProduto.preco_promocao || !exemploProduto.quantidade_promocao) {
+            // Sem promoção, aplica preço base normalmente
+            for (const entry of grupo) {
+                const quantidade = parseInt(entry.item.quantidade) || 0;
+                const subtotal = quantidade * exemploProduto.preco_base;
+
+                resultado[entry.index] = {
+                    ...resultado[entry.index],
+                    preco_base: exemploProduto.preco_base.toString(),
+                    preco_desconto: undefined,
+                    subtotal: subtotal.toFixed(2),
+                    quantidade_com_desconto: '0',
+                    quantidade_sem_desconto: quantidade.toString()
+                };
+            }
+            continue;
+        }
+
+        // Calcular quantas unidades podem ter desconto (lotes completos)
+        const numLotes = Math.floor(quantidadeTotal / exemploProduto.quantidade_promocao);
+        const unidadesComDesconto = numLotes * exemploProduto.quantidade_promocao;
+        const unidadesSemDesconto = quantidadeTotal - unidadesComDesconto;
+
+        // Distribuir unidades com desconto sequencialmente entre os items
+        let remainingDesconto = unidadesComDesconto;
+
+        for (const entry of grupo) {
+            const quantidade = parseInt(entry.item.quantidade) || 0;
+            const qtdComDesconto = Math.min(quantidade, remainingDesconto);
+            const qtdSemDesconto = quantidade - qtdComDesconto;
+
+            const subtotal = (qtdComDesconto * exemploProduto.preco_promocao) + 
+                            (qtdSemDesconto * exemploProduto.preco_base);
+
+            resultado[entry.index] = {
+                ...resultado[entry.index],
+                preco_base: exemploProduto.preco_base.toString(),
+                preco_desconto: exemploProduto.preco_promocao.toString(),
+                subtotal: subtotal.toFixed(2),
+                quantidade_com_desconto: qtdComDesconto.toString(),
+                quantidade_sem_desconto: qtdSemDesconto.toString()
+            };
+
+            remainingDesconto -= qtdComDesconto;
+        }
+    }
+
+    return resultado;
+};
 
 export const VendaService = {
     async create(venda: VendaCreateParams): Promise<Venda> {
         // Calcula total_preco
-        const total_preco = venda.itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+        const total_preco = venda.itens.reduce((sum, item) => sum + item.subtotal, 0);
 
         const result = await db.runAsync(
             `INSERT INTO vendas (cliente, data, status, metodo_pagamento, total_preco)
@@ -24,9 +149,9 @@ export const VendaService = {
         const itens: ItemVenda[] = [];
         for (const item of venda.itens) {
             const itemResult = await db.runAsync(
-                `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario)
-                 VALUES (?, ?, ?, ?)`,
-                [vendaId, item.produto_id, item.quantidade, item.preco_unitario]
+                `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_base, preco_desconto, subtotal)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [vendaId, item.produto_id, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
             );
             itens.push({
                 id: itemResult.lastInsertRowId as number,
@@ -126,12 +251,12 @@ export const VendaService = {
             await db.runAsync(`DELETE FROM itens_venda WHERE venda_id = ?`, [id]);
 
             // Inserir novos itens
-            const total_preco = venda.itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+            const total_preco = venda.itens.reduce((sum, item) => sum + item.subtotal, 0);
             for (const item of venda.itens) {
                 await db.runAsync(
-                    `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario)
-                     VALUES (?, ?, ?, ?)`,
-                    [id, item.produto_id, item.quantidade, item.preco_unitario]
+                    `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_base, preco_desconto, subtotal)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [id, item.produto_id, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
                 );
                 await db.runAsync(
                     `UPDATE produtos SET quantidade_vendida = quantidade_vendida + ? WHERE id = ?`,

@@ -80,7 +80,7 @@ export const RelatorioService = {
         }>(
             `SELECT p.tipo || ' - ' || p.sabor as produto,
                     SUM(iv.quantidade) as quantidade,
-                    SUM(iv.preco_unitario * iv.quantidade) as valor_total
+                    SUM(iv.subtotal) as valor_total
              FROM vendas v
              INNER JOIN itens_venda iv ON v.id = iv.venda_id
              INNER JOIN produtos p ON iv.produto_id = p.id

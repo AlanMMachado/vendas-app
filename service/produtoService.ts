@@ -1,12 +1,5 @@
 import { db } from '@/database/db';
-import { Produto } from '../types/Produto';
-
-export interface ProdutoCreateParams {
-    remessa_id: number;
-    tipo: string;
-    sabor: string;
-    quantidade_inicial: number;
-}
+import { Produto, ProdutoCreateParams } from '../types/Produto';
 
 export const ProdutoService = {
     async create(produto: ProdutoCreateParams): Promise<Produto> {
@@ -21,8 +14,8 @@ export const ProdutoService = {
                 produto.tipo,
                 produto.sabor,
                 produto.quantidade_inicial,
-                0,           // quantidade vendida começa em 0
-                custoPadrao  // custo padrão
+                0,
+                custoPadrao 
             ]
         );
 

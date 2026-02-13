@@ -4,8 +4,9 @@ import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
 import { SyncService } from '@/service/syncService';
-import { VendaService } from '@/service/vendaService';
-import { Produto } from '@/types/Remessa';
+import { VendaService, recalcularTodosPrecos } from '@/service/vendaService';
+import { Produto } from '@/types/Produto';
+import { ItemVendaForm } from '@/types/Venda';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -14,12 +15,6 @@ import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
 const { width } = Dimensions.get('window');
 
-interface ItemVendaForm {
-  produto_id: string;
-  quantidade: string;
-  preco_unitario: string;
-}
-
 export default function NovaVendaScreen() {
   const router = useRouter();
   const { dispatch } = useApp();
@@ -27,7 +22,7 @@ export default function NovaVendaScreen() {
   const [saving, setSaving] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [itens, setItens] = useState<ItemVendaForm[]>([
-    { produto_id: '', quantidade: '1', preco_unitario: '' }
+    { produto_id: '', quantidade: '1', preco_base: '',preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }
   ]);
   const [formData, setFormData] = useState({
     cliente: '',
@@ -63,28 +58,11 @@ export default function NovaVendaScreen() {
     }
   };
 
-  const calcularPrecoUnitario = (produto: Produto, itens: ItemVendaForm[]): number => {
-    const quantidadeTotalTipo = itens.reduce((total, item) => {
-      if (item.produto_id && item.quantidade) {
-        const itemProduto = produtos.find(p => p.id.toString() === item.produto_id);
-        if (itemProduto && itemProduto.tipo === produto.tipo) {
-          return total + parseInt(item.quantidade);
-        }
-      }
-      return total;
-    }, 0);
-
-    if (produto.preco_promocao && produto.quantidade_promocao && quantidadeTotalTipo >= produto.quantidade_promocao) {
-      return produto.preco_promocao;
-    }
-    return produto.preco_base || 0;
-  };
-
   const incrementarQuantidade = (index: number) => {
     const novosItens = [...itens];
     const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
     novosItens[index].quantidade = (quantidadeAtual + 1).toString();
-    const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+    const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
     setItens(itensComPrecosAtualizados);
   };
 
@@ -93,53 +71,13 @@ export default function NovaVendaScreen() {
     const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
     if (quantidadeAtual > 1) {
       novosItens[index].quantidade = (quantidadeAtual - 1).toString();
-      const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+      const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
       setItens(itensComPrecosAtualizados);
     }
   };
 
-  const calcularSubtotalItem = (item: ItemVendaForm): number => {
-    const quantidade = parseInt(item.quantidade) || 0;
-    const preco = parseFloat(item.preco_unitario) || 0;
-    return quantidade * preco;
-  };
-
-  const recalcularTodosPrecos = (itensParaRecalcular: ItemVendaForm[]): ItemVendaForm[] => {
-    return itensParaRecalcular.map(item => {
-      if (item.produto_id) {
-        const produto = produtos.find(p => p.id.toString() === item.produto_id);
-        if (produto) {
-          const precoCalculado = calcularPrecoUnitario(produto, itensParaRecalcular);
-          return {
-            ...item,
-            preco_unitario: precoCalculado.toFixed(2)
-          };
-        }
-      }
-      return item;
-    });
-  };
-
-  const isPromocaoAplicada = (item: ItemVendaForm, todosItens: ItemVendaForm[]): boolean => {
-    if (!item.produto_id) return false;
-    const produto = produtos.find(p => p.id.toString() === item.produto_id);
-    if (!produto || !produto.preco_promocao || !produto.quantidade_promocao) return false;
-
-    const quantidadeTotalTipo = todosItens.reduce((total, itemAtual) => {
-      if (itemAtual.produto_id && itemAtual.quantidade) {
-        const itemProduto = produtos.find(p => p.id.toString() === itemAtual.produto_id);
-        if (itemProduto && itemProduto.tipo === produto.tipo) {
-          return total + parseInt(itemAtual.quantidade);
-        }
-      }
-      return total;
-    }, 0);
-
-    return quantidadeTotalTipo >= produto.quantidade_promocao;
-  };
-
   const adicionarItem = () => {
-    setItens([...itens, { produto_id: '', quantidade: '1', preco_unitario: '' }]);
+    setItens([...itens, { produto_id: '', quantidade: '1', preco_base: '', preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }]);
   };
 
   const removerItem = (index: number) => {
@@ -157,7 +95,7 @@ export default function NovaVendaScreen() {
       if (produtoId) {
         const produto = produtos.find(p => p.id.toString() === produtoId);
         if (produto) {
-          const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens);
+          const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
           setItens(itensComPrecosAtualizados);
           return;
         }
@@ -169,12 +107,11 @@ export default function NovaVendaScreen() {
 
   const calcularTotal = () => {
     return itens.reduce((total, item) => {
-      const quantidade = parseInt(item.quantidade) || 0;
-      const preco = parseFloat(item.preco_unitario) || 0;
-      return total + (quantidade * preco);
+      const subtotal = parseFloat(item.subtotal) || 0;
+      return total + subtotal;
     }, 0);
   };
-
+  
   const handleSubmit = async () => {
     if (!formData.cliente.trim()) {
       alert('Por favor, informe o nome do cliente');
@@ -183,7 +120,7 @@ export default function NovaVendaScreen() {
 
     const itensValidos = itens.filter(item => {
       const produto = produtos.find(p => p.id.toString() === item.produto_id);
-      return produto && item.quantidade.trim() && parseInt(item.quantidade) > 0 && item.preco_unitario.trim() && parseFloat(item.preco_unitario) >= 0;
+      return produto && item.quantidade.trim() && parseInt(item.quantidade) > 0 && item.subtotal.trim() && parseFloat(item.subtotal) >= 0;
     });
 
     if (itensValidos.length === 0) {
@@ -214,7 +151,9 @@ export default function NovaVendaScreen() {
         itens: itensValidos.map(item => ({
           produto_id: parseInt(item.produto_id),
           quantidade: parseInt(item.quantidade),
-          preco_unitario: parseFloat(item.preco_unitario)
+          preco_base: parseFloat(item.preco_base),
+          preco_desconto: item.preco_desconto ? parseFloat(item.preco_desconto) : undefined,
+          subtotal: parseFloat(item.subtotal)
         }))
       };
 
@@ -354,30 +293,6 @@ export default function NovaVendaScreen() {
                           </TouchableOpacity>
                         </View>
                       </View>
-
-                      {/* Preço */}
-                      <View style={styles.priceCard}>
-                        <View style={styles.priceLabelRow}>
-                          <Text style={styles.label}>Valor</Text>
-                          {isPromocaoAplicada(item, itens) && (
-                            <View style={styles.promotionBadge}>
-                              <Text style={styles.promotionBadgeText}>PROMOÇÃO</Text>
-                            </View>
-                          )}
-                        </View>
-                        <TextInput
-                          value={`R$ ${parseFloat(item.preco_unitario || '0').toFixed(2)}`}
-                          editable={false}
-                          style={[
-                            styles.input,
-                            styles.priceInput,
-                            isPromocaoAplicada(item, itens) && styles.priceInputPromotion
-                          ]}
-                          mode="outlined"
-                          outlineColor={isPromocaoAplicada(item, itens) ? COLORS.pink : COLORS.borderGray}
-                          activeOutlineColor={isPromocaoAplicada(item, itens) ? COLORS.pink : COLORS.mediumBlue}
-                        />
-                      </View>
                     </View>
                   )}
                 </View>
@@ -507,7 +422,7 @@ export default function NovaVendaScreen() {
                 {/* Itens */}
                 <View style={styles.summaryItems}>
                   {itens.map((item, index) => {
-                    if (!item.produto_id || !item.quantidade || !item.preco_unitario) return null;
+                    if (!item.produto_id || !item.quantidade || !item.preco_base) return null;
                     const produto = produtos.find(p => p.id.toString() === item.produto_id);
                     if (!produto) return null;
                     
@@ -517,13 +432,20 @@ export default function NovaVendaScreen() {
                           <Text style={styles.summaryItemName}>
                             {produto.tipo} - {produto.sabor}
                           </Text>
-                          <Text style={styles.summaryItemDetails}>
-                            {item.quantidade}x R$ {parseFloat(item.preco_unitario).toFixed(2)}
-                            {isPromocaoAplicada(item, itens) && <Text style={styles.summaryPromoText}> • Promoção</Text>}
-                          </Text>
+                          {item.quantidade_com_desconto && parseInt(item.quantidade_com_desconto) > 0 && (
+                            <Text style={styles.summaryItemDetails}>
+                              {item.quantidade_com_desconto}x R$ {parseFloat(item.preco_desconto || '0').toFixed(2)}
+                              <Text style={styles.summaryPromoText}> • Promoção</Text>
+                            </Text>
+                          )}
+                          {item.quantidade_sem_desconto && parseInt(item.quantidade_sem_desconto) > 0 && (
+                            <Text style={styles.summaryItemDetails}>
+                              {item.quantidade_sem_desconto}x R$ {parseFloat(item.preco_base).toFixed(2)}
+                            </Text>
+                          )}
                         </View>
                         <Text style={styles.summaryItemAmount}>
-                          R$ {calcularSubtotalItem(item).toFixed(2)}
+                          R$ {parseFloat(item.subtotal).toFixed(2)}
                         </Text>
                       </View>
                     );

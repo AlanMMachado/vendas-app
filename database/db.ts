@@ -70,7 +70,9 @@ export function initDatabase() {
             venda_id INTEGER NOT NULL,
             produto_id INTEGER NOT NULL,
             quantidade INTEGER NOT NULL,
-            preco_unitario REAL NOT NULL,
+            preco_base REAL NOT NULL,
+            preco_desconto REAL DEFAULT NULL,
+            subtotal REAL NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
             FOREIGN KEY(produto_id) REFERENCES produtos(id) ON DELETE CASCADE

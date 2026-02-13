@@ -3,7 +3,19 @@ export interface ItemVenda {
     venda_id: number;
     produto_id: number;
     quantidade: number;
-    preco_unitario: number;
+    preco_base: number;
+    preco_desconto?: number;
+    subtotal: number;
+}
+
+export interface ItemVendaForm {
+    produto_id: string;
+    quantidade: string;
+    preco_base: string;
+    preco_desconto?: string;
+    subtotal: string;
+    quantidade_com_desconto?: string;
+    quantidade_sem_desconto?: string;
 }
 
 export interface Venda {

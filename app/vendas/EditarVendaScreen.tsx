@@ -4,9 +4,9 @@ import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { RemessaService } from '@/service/remessaService';
 import { SyncService } from '@/service/syncService';
-import { VendaService } from '@/service/vendaService';
-import { Produto } from '@/types/Remessa';
-import { Venda } from '@/types/Venda';
+import { VendaService, recalcularTodosPrecos } from '@/service/vendaService';
+import { Produto } from '@/types/Produto';
+import { ItemVendaForm, Venda } from '@/types/Venda';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -14,12 +14,6 @@ import { Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'reac
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
 
 const { width } = Dimensions.get('window');
-
-interface ItemVendaForm {
-  produto_id: string;
-  quantidade: string;
-  preco_unitario: string;
-}
 
 export default function EditarVendaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -67,10 +61,14 @@ export default function EditarVendaScreen() {
       const itensForm: ItemVendaForm[] = vendaData.itens.map(item => ({
         produto_id: item.produto_id.toString(),
         quantidade: item.quantidade.toString(),
-        preco_unitario: item.preco_unitario.toFixed(2)
+        preco_base: item.preco_base.toFixed(2),
+        preco_desconto: item.preco_desconto ? item.preco_desconto.toFixed(2) : undefined,
+        subtotal: item.subtotal.toFixed(2),
+        quantidade_com_desconto: item.preco_desconto ? (Math.floor(item.quantidade / (item.preco_desconto ? 3 : 1)) * (item.preco_desconto ? 3 : 1)).toString() : '0',
+        quantidade_sem_desconto: item.preco_desconto ? (item.quantidade % (item.preco_desconto ? 3 : 1)).toString() : item.quantidade.toString()
       }));
 
-      setItens(itensForm.length > 0 ? itensForm : [{ produto_id: '', quantidade: '1', preco_unitario: '' }]);
+      setItens(itensForm.length > 0 ? itensForm : [{ produto_id: '', quantidade: '1', preco_base: '', preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }]);
 
       // Preencher formulário
       setFormData({
@@ -96,7 +94,7 @@ export default function EditarVendaScreen() {
   );
 
   const adicionarItem = () => {
-    setItens([...itens, { produto_id: '', quantidade: '1', preco_unitario: '' }]);
+    setItens([...itens, { produto_id: '', quantidade: '1', preco_base: '', preco_desconto: '', subtotal: '', quantidade_com_desconto: '0', quantidade_sem_desconto: '0' }]);
   };
 
   const removerItem = (index: number) => {
@@ -108,21 +106,27 @@ export default function EditarVendaScreen() {
   const atualizarItem = (index: number, campo: keyof ItemVendaForm, valor: string) => {
     const novosItens = [...itens];
     novosItens[index][campo] = valor;
+
+    if (campo === 'quantidade') {
+      const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
+      setItens(itensComPrecosAtualizados);
+      return;
+    }
+
     setItens(novosItens);
   };
 
   const calcularTotal = () => {
     return itens.reduce((total, item) => {
-      const quantidade = parseInt(item.quantidade) || 0;
-      const preco = parseFloat(item.preco_unitario) || 0;
-      return total + (quantidade * preco);
+      const subtotal = parseFloat(item.subtotal) || 0;
+      return total + subtotal;
     }, 0);
   };
 
   const handleSubmit = async () => {
     const itensValidos = itens.filter(item => {
       const produto = produtos.find(p => p.id.toString() === item.produto_id);
-      return produto && item.quantidade.trim() && parseInt(item.quantidade) > 0 && item.preco_unitario.trim() && parseFloat(item.preco_unitario) > 0;
+      return produto && item.quantidade.trim() && parseInt(item.quantidade) > 0 && item.subtotal.trim() && parseFloat(item.subtotal) > 0;
     });
 
     if (itensValidos.length === 0 || !formData.cliente.trim() || !formData.metodo_pagamento) {
@@ -153,7 +157,9 @@ export default function EditarVendaScreen() {
         itens: itensValidos.map(item => ({
           produto_id: parseInt(item.produto_id),
           quantidade: parseInt(item.quantidade),
-          preco_unitario: parseFloat(item.preco_unitario)
+          preco_base: parseFloat(item.preco_base),
+          preco_desconto: item.preco_desconto ? parseFloat(item.preco_desconto) : undefined,
+          subtotal: parseFloat(item.subtotal)
         }))
       });
 
@@ -278,7 +284,8 @@ export default function EditarVendaScreen() {
                               const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
                               if (quantidadeAtual > 1) {
                                 novosItens[index].quantidade = (quantidadeAtual - 1).toString();
-                                setItens(novosItens);
+                                const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
+                                setItens(itensComPrecosAtualizados);
                               }
                             }}
                             style={[styles.quantityButton, parseInt(item.quantidade) <= 1 && styles.quantityButtonDisabled]}
@@ -300,28 +307,14 @@ export default function EditarVendaScreen() {
                               const novosItens = [...itens];
                               const quantidadeAtual = parseInt(novosItens[index].quantidade) || 1;
                               novosItens[index].quantidade = (quantidadeAtual + 1).toString();
-                              setItens(novosItens);
+                              const itensComPrecosAtualizados = recalcularTodosPrecos(novosItens, produtos);
+                              setItens(itensComPrecosAtualizados);
                             }}
                             style={styles.quantityButton}
                           >
                             <Text style={styles.quantityButtonText}>+</Text>
                           </TouchableOpacity>
                         </View>
-                      </View>
-
-                      {/* Preço */}
-                      <View style={styles.priceCard}>
-                        <Text style={styles.label}>Valor</Text>
-                        <TextInput
-                          value={item.preco_unitario}
-                          onChangeText={(text) => atualizarItem(index, 'preco_unitario', text)}
-                          keyboardType="numeric"
-                          style={[styles.input, styles.priceInput]}
-                          mode="outlined"
-                          placeholder="0.00"
-                          outlineColor={COLORS.borderGray}
-                          activeOutlineColor={COLORS.mediumBlue}
-                        />
                       </View>
                     </View>
                   )}
@@ -453,7 +446,7 @@ export default function EditarVendaScreen() {
                 {/* Itens */}
                 <View style={styles.summaryItems}>
                   {itens.map((item, index) => {
-                    if (!item.produto_id || !item.quantidade || !item.preco_unitario) return null;
+                    if (!item.produto_id || !item.quantidade || !item.preco_base) return null;
                     const produto = produtos.find(p => p.id.toString() === item.produto_id);
                     if (!produto) return null;
                     
@@ -461,14 +454,22 @@ export default function EditarVendaScreen() {
                       <View key={index} style={styles.summaryItem}>
                         <View style={styles.summaryItemInfo}>
                           <Text style={styles.summaryItemName}>
-                            {produto.tipo}
+                            {produto.tipo} - {produto.sabor}
                           </Text>
-                          <Text style={styles.summaryItemDetails}>
-                            {item.quantidade}x R$ {parseFloat(item.preco_unitario).toFixed(2)}
-                          </Text>
+                          {item.quantidade_com_desconto && parseInt(item.quantidade_com_desconto) > 0 && (
+                            <Text style={styles.summaryItemDetails}>
+                              {item.quantidade_com_desconto}x R$ {parseFloat(item.preco_desconto || '0').toFixed(2)}
+                              <Text style={styles.summaryPromoText}> • Promoção</Text>
+                            </Text>
+                          )}
+                          {item.quantidade_sem_desconto && parseInt(item.quantidade_sem_desconto) > 0 && (
+                            <Text style={styles.summaryItemDetails}>
+                              {item.quantidade_sem_desconto}x R$ {parseFloat(item.preco_base).toFixed(2)}
+                            </Text>
+                          )}
                         </View>
                         <Text style={styles.summaryItemAmount}>
-                          R$ {(parseInt(item.quantidade) * parseFloat(item.preco_unitario)).toFixed(2)}
+                          R$ {parseFloat(item.subtotal).toFixed(2)}
                         </Text>
                       </View>
                     );
@@ -892,6 +893,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.mediumBlue,
+  },
+  summaryPromoText: {
+    color: COLORS.pink,
+    fontWeight: '700',
+    fontSize: 12, 
   },
   summaryTotal: {
     flexDirection: 'row',

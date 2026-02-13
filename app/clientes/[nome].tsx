@@ -244,7 +244,7 @@ export default function ClienteDetalhesScreen() {
                         const produto = produtos[item.produto_id];
                         return (
                           <Text key={index} style={styles.vendaQuantidade}>
-                            • {produto ? `${produto.tipo} ${produto.sabor}` : 'Produto'} - {item.quantidade}un (R$ {item.preco_unitario.toFixed(2)})
+                            • {produto ? `${produto.tipo} ${produto.sabor}` : 'Produto'} - {item.quantidade}un (R$ {item.subtotal.toFixed(2)})
                           </Text>
                         );
                       })}

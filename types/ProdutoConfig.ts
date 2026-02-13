@@ -17,3 +17,11 @@ export interface ProdutoConfigCreateParams {
     preco_promocao?: number;
     quantidade_promocao?: number;
 }
+
+export interface ProdutoConfigForm {
+    tipo: string;
+    tipoCustomizado: string;
+    preco_base: string;
+    preco_promocao: string;
+    quantidade_promocao: string;
+}

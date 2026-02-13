@@ -3,23 +3,12 @@ import { COLORS } from '@/constants/Colors';
 import { ProdutoConfigService } from '@/service/produtoConfigService';
 import { RemessaService } from '@/service/remessaService';
 import { ProdutoConfig } from '@/types/ProdutoConfig';
+import { ProdutoRemessaForm } from '@/types/Remessa';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text, TextInput } from 'react-native-paper';
-
-interface ProdutoRemessa {
-  id?: number;
-  produtoConfigId: number;
-  tipo: string;
-  tipo_customizado?: string;
-  sabor: string;
-  quantidade_inicial: string;
-  preco_base: number;
-  preco_promocao?: number;
-  quantidade_promocao?: number;
-}
 
 export default function EditarRemessaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,7 +17,7 @@ export default function EditarRemessaScreen() {
   const [saving, setSaving] = useState(false);
   const [observacao, setObservacao] = useState('');
   const [produtosConfig, setProdutosConfig] = useState<ProdutoConfig[]>([]);
-  const [produtos, setProdutos] = useState<ProdutoRemessa[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoRemessaForm[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,7 +37,7 @@ export default function EditarRemessaScreen() {
         setObservacao(remessa.observacao || '');
         
         // Mapear produtos atuais
-        const produtosMapeados: ProdutoRemessa[] = remessa.produtos?.map(p => ({
+        const produtosMapeados: ProdutoRemessaForm[] = remessa.produtos?.map(p => ({
           id: p.id,
           produtoConfigId: 0,
           tipo: p.tipo,
@@ -73,7 +62,7 @@ export default function EditarRemessaScreen() {
   };
 
   const adicionarProduto = (produtoConfig: ProdutoConfig) => {
-    const novoProduto: ProdutoRemessa = {
+    const novoProduto: ProdutoRemessaForm = {
       produtoConfigId: produtoConfig.id,
       tipo: produtoConfig.tipo,
       tipo_customizado: produtoConfig.tipo_customizado,
@@ -91,7 +80,7 @@ export default function EditarRemessaScreen() {
     setProdutos(produtos.filter((_, i) => i !== index));
   };
 
-  const atualizarProduto = (index: number, campo: keyof ProdutoRemessa, valor: string) => {
+  const atualizarProduto = (index: number, campo: keyof ProdutoRemessaForm, valor: string) => {
     const novosProdutos = [...produtos];
     (novosProdutos[index] as any)[campo] = valor;
     setProdutos(novosProdutos);
@@ -166,7 +155,7 @@ export default function EditarRemessaScreen() {
     }
   };
 
-  const getTipoDisplay = (produto: ProdutoRemessa) => {
+  const getTipoDisplay = (produto: ProdutoRemessaForm) => {
     return produto.tipo === 'outro' && produto.tipo_customizado
       ? produto.tipo_customizado
       : produto.tipo;

@@ -1,8 +1,12 @@
-export interface ProdutoCreateParams {
+import { Produto, ProdutoParaRemessa } from './Produto';
+
+export interface ProdutoRemessaForm {
+    id?: number;
+    produtoConfigId: number;
     tipo: string;
+    tipo_customizado?: string;
     sabor: string;
-    quantidade_inicial: number;
-    custo_producao?: number; // opcional na criação
+    quantidade_inicial: string;
     preco_base: number;
     preco_promocao?: number;
     quantidade_promocao?: number;
@@ -19,19 +23,5 @@ export interface Remessa {
 export interface RemessaCreateParams {
     data: string;
     observacao?: string;
-    produtos: ProdutoCreateParams[]; // agora usa a interface correta
-}
-
-export interface Produto {
-    id: number;
-    remessa_id: number;
-    tipo: string;
-    sabor: string;
-    quantidade_inicial: number;
-    quantidade_vendida: number;
-    custo_producao: number;
-    preco_base: number;
-    preco_promocao?: number;
-    quantidade_promocao?: number;
-    created_at?: string;
+    produtos: ProdutoParaRemessa[];
 }

@@ -197,7 +197,7 @@ export default function DashboardScreen() {
                       const produtoNome = getProdutoNome(item.produto_id);
                       return (
                         <Text key={index} style={styles.vendaProduto}>
-                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text>un (R$ {item.preco_unitario.toFixed(2)})
+                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text>un (R$ {item.subtotal.toFixed(2)})
                         </Text>
                       );
                     })}

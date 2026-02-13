@@ -1,5 +1,6 @@
 import { db } from '@/database/db';
-import { Produto, Remessa, RemessaCreateParams } from '../types/Remessa';
+import { Produto, ProdutoParaRemessa } from '../types/Produto';
+import { Remessa, RemessaCreateParams } from '../types/Remessa';
 import { ProdutoConfigService } from './produtoConfigService';
 
 export const RemessaService = {
@@ -149,12 +150,12 @@ export const RemessaService = {
         );
     },
 
-    async addProduto(remessaId: number, produto: ProdutoCreateParams): Promise<void> {
+    async addProduto(remessaId: number, produto: ProdutoParaRemessa): Promise<void> {
         const custoPadrao = produto.tipo === 'trufa' ? 2.50 : 5.00;
         let precoBase = produto.preco_base || 0;
         let precoPromocao = produto.preco_promocao || null;
         let quantidadePromocao = produto.quantidade_promocao || null;
-        let produtoConfigId: number | null = null;
+        let produtoConfigId: number | null = produto.produto_config_id || null;
 
         if (!produto.preco_base) {
             try {
