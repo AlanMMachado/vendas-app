@@ -245,12 +245,32 @@ export default function DetalhesRemessaScreen() {
           {remessa.produtos?.map((produto) => (
             <View key={produto.id} style={styles.produtoItem}>
               <View style={styles.produtoHeader}>
-                <Text style={styles.produtoNome}>
-                  {produto.tipo} - {produto.sabor}
-                </Text>
-                <Text style={styles.produtoCusto}>
-                  Custo: R$ {produto.custo_producao.toFixed(2)}
-                </Text>
+                <View style={styles.produtoInfo}>
+                  <Text style={styles.produtoNome}>
+                    {produto.tipo} - {produto.sabor}
+                  </Text>
+                  <Text style={styles.produtoCusto}>
+                    Custo: R$ {produto.custo_producao.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={[
+                  styles.statusBadge,
+                  produto.quantidade_inicial === produto.quantidade_vendida
+                    ? styles.statusBadgeEsgotado
+                    : styles.statusBadgeDisponivel
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    produto.quantidade_inicial === produto.quantidade_vendida
+                      ? styles.statusTextEsgotado
+                      : styles.statusTextDisponivel
+                  ]}>
+                    {produto.quantidade_inicial === produto.quantidade_vendida
+                      ? 'Esgotado'
+                      : `${produto.quantidade_inicial - produto.quantidade_vendida} disponíveis`
+                    }
+                  </Text>
+                </View>
               </View>
 
               <View style={styles.produtoProgress}>
@@ -270,17 +290,6 @@ export default function DetalhesRemessaScreen() {
                     ]}
                   />
                 </View>
-              </View>
-
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {produto.quantidade_inicial === produto.quantidade_vendida
-                    ? 'Esgotado'
-                    : produto.quantidade_vendida === 0
-                      ? 'Novo'
-                      : `${produto.quantidade_inicial - produto.quantidade_vendida} disponíveis`
-                  }
-                </Text>
               </View>
             </View>
           ))}
@@ -512,6 +521,13 @@ const styles = StyleSheet.create({
   },
   produtoHeader: {
     marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  produtoInfo: {
+    flex: 1,
   },
   produtoNome: {
     fontSize: 14,
@@ -554,17 +570,29 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.softGray,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.mediumBlue,
+    flexShrink: 1,
+  },
+  statusBadgeDisponivel: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#16a34a',
+  },
+  statusBadgeEsgotado: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#dc2626',
   },
   statusText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: COLORS.mediumBlue,
+  },
+  statusTextDisponivel: {
+    color: '#16a34a',
+  },
+  statusTextEsgotado: {
+    color: '#dc2626',
   },
   vendasSection: {
     backgroundColor: COLORS.white,
