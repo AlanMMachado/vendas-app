@@ -85,7 +85,7 @@ export default function TabLayout() {
             headerShown: false,
             tabBarLabel: ({ focused, color }) => (
               <View style={styles.labelContainer}>
-                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.gray }]} allowFontScaling={false}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.textLight }]} allowFontScaling={false}>
                   Dashboard
                 </Text>
                 <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
@@ -102,7 +102,7 @@ export default function TabLayout() {
             headerShown: false,
             tabBarLabel: ({ focused, color }) => (
               <View style={styles.labelContainer}>
-                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.gray }]} allowFontScaling={false}>
+                <Text style={[styles.iconLabel, { color: focused ? color : COLORS.textLight }]} allowFontScaling={false}>
                   Remessas
                 </Text>
                 <View style={[styles.labelIndicator, { width: focused ? 26 : 0, backgroundColor: focused ? color : 'transparent' }]} />
