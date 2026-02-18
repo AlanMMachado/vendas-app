@@ -198,7 +198,7 @@ export default function NovaVendaScreen() {
           <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
-        <ScrollView keyboardShouldPersistTaps="always" style={styles.scrollView}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={styles.scrollView}>
           <View style={styles.content}>
 
             {/* PASSO 1: Seleção de Produtos */}
@@ -233,7 +233,7 @@ export default function NovaVendaScreen() {
                           {produto.tipo}
                           {produto.sabor ? ` - ${produto.sabor}` : ''}
                         </Text>
-                        <View style={styles.produtoListStock}>
+                        <View>
                           <Text style={styles.produtoListStockText}>
                             {estoque} em estoque
                           </Text>
@@ -601,9 +601,6 @@ const styles = StyleSheet.create({
   produtoListNameDisabled: {
     color: COLORS.textMedium,
   },
-  produtoListStock: {
-    marginTop: 4,
-  },
   produtoListStockText: {
     fontSize: 12,
     color: COLORS.textMedium,
@@ -772,7 +769,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   summaryItems: {
-
     borderTopWidth: 1,
     borderColor: COLORS.borderGray,
     paddingVertical: 5,
@@ -824,8 +820,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.mediumBlue,
   },
-
-  // BOTÕES DE AÇÃO
   actionButtons: {
     flexDirection: 'row',
     gap: 12,

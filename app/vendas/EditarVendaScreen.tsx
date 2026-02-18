@@ -233,7 +233,7 @@ export default function EditarVendaScreen() {
           <ActivityIndicator size="large" color={COLORS.mediumBlue} />
         </View>
       ) : (
-        <ScrollView keyboardShouldPersistTaps="always" style={styles.scrollView}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={styles.scrollView}>
           <View style={styles.content}>
 
             {/* PASSO 1: Seleção de Produtos */}

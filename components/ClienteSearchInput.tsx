@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Keyboard } from 'react-native';
-import { TextInput, Text } from 'react-native-paper';
 import { ClienteService } from '@/service/clienteService';
 import { Cliente } from '@/types/Cliente';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
 
 interface ClienteSearchInputProps {
   value: string;
@@ -27,6 +27,7 @@ export default function ClienteSearchInput({
   const [loading, setLoading] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const isSelectingRef = useRef(false);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     carregarClientes();
@@ -122,9 +123,7 @@ export default function ClienteSearchInput({
     isSelectingRef.current = true;
     
     // Fechar dropdown imediatamente
-    setShowDropdown(false);
-    onDropdownStateChange?.(false);
-    setSugestoes([]);
+    fecharDropdown();
     
     // Atualizar estado interno
     setClienteSelecionado(cliente);
@@ -136,17 +135,18 @@ export default function ClienteSearchInput({
     // Resetar flag
     setTimeout(() => {
       isSelectingRef.current = false;
-    }, 200);
+    }, 50);
   }, [onChangeText, onClienteSelect]);
 
-  const handleInputFocus = () => {
-    // Não fazer nada no focus, o dropdown é controlado pelas sugestões
-  };
-
-  // O dropdown será controlado apenas pela seleção ou mudança de texto
+  const fecharDropdown = useCallback(() => {
+    setShowDropdown(false);
+    onDropdownStateChange?.(false);
+    setSugestoes([]);
+    Keyboard.dismiss();
+  }, [onDropdownStateChange]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={containerRef}>
       <TextInput
         value={value}
         onChangeText={(text) => {
@@ -156,13 +156,6 @@ export default function ClienteSearchInput({
             setClienteSelecionado(null);
             onClienteSelect?.(null);
           }
-        }}
-        onBlur={() => {
-          // Fechar dropdown quando o usuário sai do campo
-          setTimeout(() => {
-            setShowDropdown(false);
-            onDropdownStateChange?.(false);
-          }, 150);
         }}
         style={styles.input}
         mode="outlined"
@@ -180,37 +173,57 @@ export default function ClienteSearchInput({
       />
 
       {showDropdown && sugestoes.length > 0 && (
-        <View style={styles.dropdown} pointerEvents="auto">
-          {sugestoes.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.sugestaoItem,
-                { backgroundColor: '#ffffff' }
-              ]}
-              onPress={() => selecionarCliente(item)}
-              activeOpacity={0.7}
+        <>
+          {/* Overlay invisível para detectar cliques fora */}
+          <View
+            style={styles.overlayView}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              style={styles.overlay}
+              onPress={() => fecharDropdown()}
+            />
+          </View>
+
+          {/* Dropdown com scroll interno */}
+          <View style={styles.dropdownContainer} pointerEvents="auto">
+            <ScrollView
+              style={styles.dropdown}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+              scrollIndicatorInsets={{ right: 1 }}
+              keyboardShouldPersistTaps="handled"
             >
-              <View style={styles.sugestaoContent}>
-                <Text style={styles.sugestaoNome}>{item.nome}</Text>
-                <View style={styles.sugestaoInfo}>
-                  <Text style={styles.sugestaoCompras}>
-                    {item.numeroCompras} compra{item.numeroCompras !== 1 ? 's' : ''}
-                  </Text>
-                  {item.totalDevido > 0 && (
-                    <Text style={styles.sugestaoDevido}>
-                      R$ {item.totalDevido.toFixed(2)} devido
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <View style={[
-                styles.statusIndicator,
-                item.status === 'devedor' ? styles.statusDevedor : styles.statusEmDia
-              ]} />
-            </TouchableOpacity>
-          ))}
-        </View>
+              {sugestoes.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.sugestaoItem}
+                  onPress={() => selecionarCliente(item)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sugestaoContent}>
+                    <Text style={styles.sugestaoNome}>{item.nome}</Text>
+                    <View style={styles.sugestaoInfo}>
+                      <Text style={styles.sugestaoCompras}>
+                        {item.numeroCompras} compra{item.numeroCompras !== 1 ? 's' : ''}
+                      </Text>
+                      {item.totalDevido > 0 && (
+                        <Text style={styles.sugestaoDevido}>
+                          R$ {item.totalDevido.toFixed(2)} devido
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={[
+                    styles.statusIndicator,
+                    item.status === 'devedor' ? styles.statusDevedor : styles.statusEmDia
+                  ]} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </>
       )}
     </View>
   );
@@ -219,15 +232,28 @@ export default function ClienteSearchInput({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    zIndex: 1000,
   },
   input: {
     backgroundColor: '#ffffff',
   },
-  dropdown: {
+  overlayView: {
+    position: 'absolute',
+    top: -9999,
+    left: -9999,
+    right: -9999,
+    bottom: -9999,
+    zIndex: 999,
+  },
+  overlay: {
+    flex: 1,
+  },
+  dropdownContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
+    maxHeight: 280,
     backgroundColor: '#ffffff',
     borderRadius: 8,
     borderWidth: 2,
@@ -236,9 +262,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 10,
-    maxHeight: 200,
-    zIndex: 9999,
+    elevation: 100,
+    zIndex: 1000,
+    marginTop: 4,
+  },
+  dropdown: {
+    maxHeight: 280,
   },
   sugestaoItem: {
     flexDirection: 'row',
