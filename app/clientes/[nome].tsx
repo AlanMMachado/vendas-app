@@ -1,5 +1,6 @@
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
+import VendaCard from '@/components/VendaCard';
 import { COLORS } from '@/constants/Colors';
 import { ClienteService } from '@/service/clienteService';
 import { ProdutoService } from '@/service/produtoService';
@@ -9,12 +10,10 @@ import { Cliente } from '@/types/Cliente';
 import { Produto } from '@/types/Produto';
 import { Venda } from '@/types/Venda';
 import { useFocusEffect } from '@react-navigation/native';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CheckCircle, Clock, DollarSign, ShoppingCart, XCircle } from 'lucide-react-native';
+import { Clock, DollarSign, ShoppingCart, XCircle } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
 export default function ClienteDetalhesScreen() {
@@ -125,6 +124,13 @@ export default function ClienteDetalhesScreen() {
     }
   };
 
+  const getProdutoNome = (produtoId: number, item?: { produto_tipo?: string; produto_sabor?: string }) => {
+    const produto = produtos[produtoId];
+    if (produto) return `${produto.tipo} ${produto.sabor}`;
+    if (item?.produto_tipo && item?.produto_sabor) return `${item.produto_tipo} ${item.produto_sabor}`;
+    return 'Produto removido';
+  };
+
   const calcularDiasDesdeUltimaCompra = () => {
     if (!cliente) return 0;
     const hoje = new Date();
@@ -231,57 +237,16 @@ export default function ClienteDetalhesScreen() {
               <Text style={styles.sectionTitle}>Histórico de Compras</Text>
 
               {cliente.vendas.map((venda) => (
-                <View key={venda.id} style={styles.vendaItem}>
-                  <View style={styles.vendaInfo}>
-                    <View style={styles.vendaHeader}>
-                      <Text style={styles.vendaProduto}>
-                        Venda #{venda.id}
-                      </Text>
-                    </View>
-
-                    <View style={styles.vendaDetalhes}>
-                      {venda.itens.map((item, index) => {
-                        const produto = produtos[item.produto_id];
-                        const nomeProduto = produto 
-                          ? `${produto.tipo} ${produto.sabor}` 
-                          : (item.produto_tipo && item.produto_sabor 
-                            ? `${item.produto_tipo} ${item.produto_sabor}` 
-                            : 'Produto removido');
-                        return (
-                          <Text key={index} style={styles.vendaQuantidade}>
-                            • {nomeProduto} - {item.quantidade}un (R$ {item.subtotal.toFixed(2)})
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  </View>
-
-                  <View style={styles.vendaValor}>
-                    <Text style={styles.vendaPreco}>R$ {venda.total_preco.toFixed(2)}</Text>
-                    <Text style={styles.vendaData}>
-                      {format(parseISO(venda.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                    </Text>
-                    {venda.status === 'PENDENTE' && (
-                      <TouchableOpacity
-                        style={styles.marcarPagoBotao}
-                        onPress={() => {
-                          setVendaParaMarcar(venda);
-                          setModalPagamentoVisible(true);
-                        }}
-                      >
-                        <Text style={styles.marcarPagoTexto}>Marcar Pago</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <View style={styles.miniStatusBadge}>
-                    {venda.status === 'OK' ? (
-                      <CheckCircle size={16} color="#059669" />
-                    ) : (
-                      <Clock size={16} color="#d97706" />
-                    )}
-                  </View>
-                </View>
+                <VendaCard
+                  key={venda.id}
+                  venda={venda}
+                  getProdutoNome={getProdutoNome}
+                  showDate={true}
+                  onMarcarPago={(v) => {
+                    setVendaParaMarcar(v);
+                    setModalPagamentoVisible(true);
+                  }}
+                />
               ))}
             </View>
           </View>
@@ -455,6 +420,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderGray,
     padding: 20,
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 16,
@@ -462,78 +428,5 @@ const styles = StyleSheet.create({
     color: COLORS.textDark,
     marginBottom: 16,
   },
-  vendaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.softGray,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderGray,
-    marginBottom: 8,
-    position: 'relative',
-  },
-  vendaInfo: {
-    flex: 1,
-    paddingRight: 24,
-  },
-  vendaHeader: {
-    marginBottom: 8,
-  },
-  vendaProduto: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-  },
-  miniStatusBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-  },
-  vendaDetalhes: {
-    marginBottom: 8,
-  },
-  vendaQuantidade: {
-    fontSize: 12,
-    color: COLORS.textMedium,
-  },
-  vendaData: {
-    fontSize: 11,
-    color: COLORS.textMedium,
-    marginTop: 4,
-  },
-  vendaValor: {
-    alignItems: 'flex-end',
-    minWidth: 80,
-  },
-  vendaPreco: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.textDark,
-    marginBottom: 4,
-  },
-  marcarPagoBotao: {
-    backgroundColor: COLORS.error,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  marcarPagoTexto: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  miniStatusPago: {
-    backgroundColor: COLORS.green,
-    borderRadius: 12,
-    padding: 4,
-  },
-  miniStatusPendente: {
-    backgroundColor: COLORS.warning,
-    borderRadius: 12,
-    padding: 4,
-  },
+
 });

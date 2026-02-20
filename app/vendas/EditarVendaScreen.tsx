@@ -784,10 +784,8 @@ const styles = StyleSheet.create({
   },
   summaryItems: {
     borderTopWidth: 1,
-    borderBottomWidth: 1,
     borderColor: COLORS.borderGray,
-    paddingVertical: 12,
-    marginBottom: 12,
+    paddingVertical: 5,
   },
   summaryItem: {
     flexDirection: 'row',

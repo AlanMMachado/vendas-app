@@ -220,7 +220,7 @@ export default function EditarRemessaScreen() {
                           </Text>
                           <Text style={styles.produtoConfigPreco}>
                             R$ {config.preco_base.toFixed(2)}
-                            {config.preco_promocao ? `  •  ${config.quantidade_promocao}+ por R$ ${config.preco_promocao.toFixed(2)}` : ''}
+                            {config.preco_promocao ? ` - ${config.quantidade_promocao} por R$ ${config.preco_promocao.toFixed(2)} un `  : ''}
                           </Text>
                         </View>
                         <View style={styles.produtoConfigRight}>

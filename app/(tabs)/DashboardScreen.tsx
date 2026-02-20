@@ -1,4 +1,5 @@
 import Header from '@/components/Header';
+import VendaCard from '@/components/VendaCard';
 import { COLORS } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 import { ProdutoService } from '@/service/produtoService';
@@ -6,7 +7,7 @@ import { RelatorioService } from '@/service/relatorioService';
 import { VendaService } from '@/service/vendaService';
 import { Produto } from '@/types/Produto';
 import { useFocusEffect } from '@react-navigation/native';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -175,34 +176,12 @@ export default function DashboardScreen() {
           ) : (
             <View style={styles.vendasList}>
               {state.vendas.map((venda) => (
-                <View key={venda.id} style={styles.vendaItem}>
-                  <View style={styles.vendaInfo}>
-                    <Text style={styles.vendaCliente}>
-                      {venda.cliente || 'Cliente'} - {format(parseISO(venda.data), 'HH:mm', { locale: ptBR })}</Text>
-                    {venda.itens.map((item, index) => {
-                      const produtoNome = getProdutoNome(item.produto_id, item);
-                      return (
-                        <Text key={index} style={styles.vendaProduto}>
-                          • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text> (R$ {item.subtotal.toFixed(2)})
-                        </Text>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.vendaValores}>
-                    <Text style={styles.vendaPreco}>R$ {venda.total_preco.toFixed(2)}</Text>
-                    <View style={[
-                      styles.statusBadge,
-                      venda.status === 'OK' ? styles.statusPago : styles.statusPendente
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        venda.status === 'OK' ? styles.statusTextPago : styles.statusTextPendente
-                      ]}>
-                        {venda.status === 'OK' ? 'Pago' : 'Pendente'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <VendaCard
+                  key={venda.id}
+                  venda={venda}
+                  getProdutoNome={getProdutoNome}
+                  showDate={true}
+                />
               ))}
             </View>
           )}
@@ -412,65 +391,5 @@ const styles = StyleSheet.create({
   },
   vendasList: {
     gap: 12,
-  },
-  vendaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.softGray,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderGray,
-  },
-  vendaInfo: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  vendaCliente: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 2,
-  },
-  vendaProduto: {
-    fontSize: 12,
-    color: COLORS.textMedium,
-    marginBottom: 2,
-  },
-  vendaData: {
-    fontSize: 12,
-    color: COLORS.textMedium,
-  },
-  vendaValores: {
-    alignItems: 'flex-end',
-  },
-  vendaPreco: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: COLORS.textDark,
-    marginBottom: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusPago: {
-    backgroundColor: COLORS.green,
-  },
-  statusPendente: {
-    backgroundColor: COLORS.warning,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  statusTextPago: {
-    color: COLORS.white,
-  },
-  statusTextPendente: {
-    color: COLORS.white,
   },
 });

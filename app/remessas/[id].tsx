@@ -1,5 +1,6 @@
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
+import VendaCard from '@/components/VendaCard';
 import { COLORS } from '@/constants/Colors';
 import { RemessaService } from '@/service/remessaService';
 import { SyncService } from '@/service/syncService';
@@ -163,6 +164,13 @@ export default function DetalhesRemessaScreen() {
     return remessa?.produtos?.find(p => p.id === produtoId);
   };
 
+  const getProdutoNome = (produtoId: number, item?: { produto_tipo?: string; produto_sabor?: string }) => {
+    const produto = getProdutoById(produtoId);
+    if (produto) return `${produto.tipo} ${produto.sabor}`;
+    if (item?.produto_tipo && item?.produto_sabor) return `${item.produto_tipo} ${item.produto_sabor}`;
+    return 'Produto removido';
+  };
+
   return (
     <View style={styles.container}>
       <Header 
@@ -171,10 +179,10 @@ export default function DetalhesRemessaScreen() {
         actions={
           <>
             <TouchableOpacity style={styles.editCardButton} onPress={() => router.push(`/remessas/EditarRemessaScreen?id=${id}`)}>
-              <Edit size={16} color="#ffffff" />
+              <Edit size={20} color="#2563eb" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteCardButton} onPress={() => setDeleteModalVisible(true)}>
-              <Trash2 size={16} color="#ffffff" />
+              <Trash2 size={20} color="#dc2626" />
             </TouchableOpacity>
           </>
         }
@@ -307,60 +315,18 @@ export default function DetalhesRemessaScreen() {
 
             {/* Lista de Vendas */}
             {vendas.slice(0, 10).map((venda) => (
-              <View key={venda.id} style={styles.vendaItem}>
-                <View style={styles.vendaInfo}>
-                  <Text style={styles.vendaCliente}>{venda.cliente}</Text>
-                  <View style={styles.vendaProdutos}>
-                    {venda.itens.map((item, itemIndex) => {
-                      const produto = getProdutoById(item.produto_id);
-                      const nomeProduto = produto 
-                        ? `${produto.tipo} - ${produto.sabor}` 
-                        : (item.produto_tipo && item.produto_sabor 
-                          ? `${item.produto_tipo} - ${item.produto_sabor}` 
-                          : 'Produto removido');
-                      return (
-                        <Text key={`${venda.id}-${itemIndex}`} style={styles.vendaProduto}>
-                          {nomeProduto} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''}) R$ {item.subtotal.toFixed(2)}
-                        </Text>
-                      );
-                    })}
-                  </View>
-                  <Text style={styles.vendaData}>
-                    {formatDateTime(venda.data)}
-                  </Text>
-                </View>
-                <View style={styles.vendaValores}>
-                  <Text style={styles.vendaTotal}>R$ {venda.total_preco.toFixed(2)}</Text>
-                  <View style={[
-                    styles.vendaStatus,
-                    venda.status === 'OK' ? styles.statusPago : styles.statusPendente
-                  ]}>
-                    <Text style={[
-                      styles.vendaStatusText,
-                      venda.status === 'OK' ? styles.statusTextPago : styles.statusTextPendente
-                    ]}>
-                      {venda.status === 'OK' ? 'PAGO' : 'PENDENTE'}
-                    </Text>
-                  </View>
-                </View>
-              <View style={styles.vendaActions}>
-                  <TouchableOpacity 
-                    style={styles.editVendaButton}
-                    onPress={() => router.push(`/vendas/EditarVendaScreen?id=${venda.id}`)}
-                  >
-                    <Edit size={14} color={COLORS.mediumBlue} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.deleteVendaButton}
-                    onPress={() => {
-                      setVendaToDelete(venda);
-                      setDeleteVendaModalVisible(true);
-                    }}
-                  >
-                    <Trash2 size={14} color={COLORS.error} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <VendaCard
+                key={venda.id}
+                venda={venda}
+                getProdutoNome={getProdutoNome}
+                showDate={true}
+                showActions={true}
+                onEdit={(v) => router.push(`/vendas/EditarVendaScreen?id=${v.id}`)}
+                onDelete={(v) => {
+                  setVendaToDelete(v);
+                  setDeleteVendaModalVisible(true);
+                }}
+              />
             ))}
             {vendas.length > 10 && (
               <Text style={styles.maisVendas}>
@@ -606,99 +572,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderGray,
     padding: 20,
     marginBottom: 16,
-  },
-  vendaItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.softGray,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderGray,
-    marginBottom: 8,
-  },
-  vendaInfo: {
-    flex: 1,
-    marginBottom: 8,
-  },
-  vendaCliente: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 2,
-  },
-  vendaProduto: {
-    fontSize: 12,
-    color: COLORS.textMedium,
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  vendaProdutos: {
-    marginBottom: 4,
-  },
-  vendaTotal: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.textDark,
-    marginBottom: 4,
-  },
-  vendaData: {
-    fontSize: 11,
-    color: COLORS.textMedium,
-  },
-  vendaValores: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  vendaStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  statusPago: {
-    backgroundColor: COLORS.softGray,
-    borderColor: COLORS.green,
-  },
-  statusPendente: {
-    backgroundColor: COLORS.softGray,
-    borderColor: COLORS.warning,
-  },
-  vendaStatusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  statusTextPago: {
-    color: COLORS.green,
-  },
-  statusTextPendente: {
-    color: COLORS.warning,
-  },
-  vendaActions: {
-    flexDirection: 'row',
     gap: 8,
   },
-  editVendaButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.softGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.mediumBlue,
-  },
-  deleteVendaButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.softGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.error,
-  },
+
   maisVendas: {
     textAlign: 'center',
     color: COLORS.textLight,
@@ -766,20 +642,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editCardButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.mediumBlue,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
   },
   deleteCardButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.error,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.softGray,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
   dividaCard: {
     backgroundColor: COLORS.white,
