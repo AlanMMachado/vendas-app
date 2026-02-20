@@ -313,11 +313,16 @@ export default function DetalhesRemessaScreen() {
                   <View style={styles.vendaProdutos}>
                     {venda.itens.map((item, itemIndex) => {
                       const produto = getProdutoById(item.produto_id);
-                      return produto ? (
+                      const nomeProduto = produto 
+                        ? `${produto.tipo} - ${produto.sabor}` 
+                        : (item.produto_tipo && item.produto_sabor 
+                          ? `${item.produto_tipo} - ${item.produto_sabor}` 
+                          : 'Produto removido');
+                      return (
                         <Text key={`${venda.id}-${itemIndex}`} style={styles.vendaProduto}>
-                          {produto.tipo} - {produto.sabor} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''}) R$ {item.subtotal.toFixed(2)}
+                          {nomeProduto} ({item.quantidade} unidade{item.quantidade !== 1 ? 's' : ''}) R$ {item.subtotal.toFixed(2)}
                         </Text>
-                      ) : null;
+                      );
                     })}
                   </View>
                   <Text style={styles.vendaData}>
@@ -379,7 +384,7 @@ export default function DetalhesRemessaScreen() {
       <ConfirmationModal
         visible={deleteModalVisible}
         title="Excluir Remessa"
-        message="Tem certeza que deseja excluir esta remessa? Esta ação não pode ser desfeita e todos os produtos e vendas associadas serão removidos."
+        message="Tem certeza que deseja excluir esta remessa? Os produtos serão removidos, mas o histórico de vendas será preservado."
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalVisible(false)}
         confirmText="Excluir"

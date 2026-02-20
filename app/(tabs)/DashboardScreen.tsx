@@ -87,9 +87,11 @@ export default function DashboardScreen() {
   };
 
   // Garantir que o estado produtos seja usado
-  const getProdutoNome = (produtoId: number) => {
+  const getProdutoNome = (produtoId: number, item?: { produto_tipo?: string; produto_sabor?: string }) => {
     const produto = produtos[produtoId];
-    return produto ? `${produto.tipo} ${produto.sabor}` : 'Produto';
+    if (produto) return `${produto.tipo} ${produto.sabor}`;
+    if (item?.produto_tipo && item?.produto_sabor) return `${item.produto_tipo} ${item.produto_sabor}`;
+    return 'Produto removido';
   };
 
   return (
@@ -153,23 +155,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Ações Rápidas */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={() => router.push('/vendas/NovaVendaScreen')}
-          >
-            <Text style={styles.primaryButtonText}>+ Nova Venda</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.secondaryButton}
-            onPress={() => router.push('/remessas/NovaRemessaScreen')}
-          >
-            <Text style={styles.secondaryButtonText}>+ Nova Remessa</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Vendas Recentes */}
         <View style={styles.vendasSection}>
           <View style={styles.sectionHeader}>
@@ -195,7 +180,7 @@ export default function DashboardScreen() {
                     <Text style={styles.vendaCliente}>
                       {venda.cliente || 'Cliente'} - {format(parseISO(venda.data), 'HH:mm', { locale: ptBR })}</Text>
                     {venda.itens.map((item, index) => {
-                      const produtoNome = getProdutoNome(item.produto_id);
+                      const produtoNome = getProdutoNome(item.produto_id, item);
                       return (
                         <Text key={index} style={styles.vendaProduto}>
                           • {produtoNome} - <Text style={{color: '#2563eb', fontWeight: 'bold'}}>{item.quantidade}</Text> (R$ {item.subtotal.toFixed(2)})
@@ -225,6 +210,13 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
       )}
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/vendas/NovaVendaScreen')}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -348,38 +340,26 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
     fontWeight: '600',
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  primaryButton: {
-    flex: 1,
+  fab: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: COLORS.mediumBlue,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  primaryButtonText: {
+  fabText: {
+    fontSize: 32,
     color: COLORS.white,
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.mediumBlue,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: COLORS.mediumBlue,
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '300',
   },
   vendasSection: {
     backgroundColor: COLORS.white,

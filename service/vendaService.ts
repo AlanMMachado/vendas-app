@@ -149,9 +149,9 @@ export const VendaService = {
         const itens: ItemVenda[] = [];
         for (const item of venda.itens) {
             const itemResult = await db.runAsync(
-                `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_base, preco_desconto, subtotal)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [vendaId, item.produto_id, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
+                `INSERT INTO itens_venda (venda_id, produto_id, produto_tipo, produto_sabor, quantidade, preco_base, preco_desconto, subtotal)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [vendaId, item.produto_id, item.produto_tipo || null, item.produto_sabor || null, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
             );
             itens.push({
                 id: itemResult.lastInsertRowId as number,
@@ -254,9 +254,9 @@ export const VendaService = {
             const total_preco = venda.itens.reduce((sum, item) => sum + item.subtotal, 0);
             for (const item of venda.itens) {
                 await db.runAsync(
-                    `INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_base, preco_desconto, subtotal)
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [id, item.produto_id, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
+                    `INSERT INTO itens_venda (venda_id, produto_id, produto_tipo, produto_sabor, quantidade, preco_base, preco_desconto, subtotal)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, item.produto_id, item.produto_tipo || null, item.produto_sabor || null, item.quantidade, item.preco_base, item.preco_desconto || null, item.subtotal]
                 );
                 await db.runAsync(
                     `UPDATE produtos SET quantidade_vendida = quantidade_vendida + ? WHERE id = ?`,

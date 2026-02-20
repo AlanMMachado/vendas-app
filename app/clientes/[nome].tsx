@@ -242,9 +242,14 @@ export default function ClienteDetalhesScreen() {
                     <View style={styles.vendaDetalhes}>
                       {venda.itens.map((item, index) => {
                         const produto = produtos[item.produto_id];
+                        const nomeProduto = produto 
+                          ? `${produto.tipo} ${produto.sabor}` 
+                          : (item.produto_tipo && item.produto_sabor 
+                            ? `${item.produto_tipo} ${item.produto_sabor}` 
+                            : 'Produto removido');
                         return (
                           <Text key={index} style={styles.vendaQuantidade}>
-                            • {produto ? `${produto.tipo} ${produto.sabor}` : 'Produto'} - {item.quantidade}un (R$ {item.subtotal.toFixed(2)})
+                            • {nomeProduto} - {item.quantidade}un (R$ {item.subtotal.toFixed(2)})
                           </Text>
                         );
                       })}

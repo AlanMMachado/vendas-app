@@ -71,6 +71,7 @@ export const RemessaService = {
             id: remessaId,
             data: remessa.data,
             observacao: remessa.observacao,
+            ativa: 1,
             created_at: new Date().toISOString()
         };
     },
@@ -93,7 +94,7 @@ export const RemessaService = {
         return await db.getAllAsync<Remessa>(
             `SELECT DISTINCT r.* FROM remessas r
              INNER JOIN produtos p ON r.id = p.remessa_id
-             WHERE (p.quantidade_inicial - p.quantidade_vendida) > 0
+             WHERE r.ativa = 1 AND (p.quantidade_inicial - p.quantidade_vendida) > 0
              ORDER BY r.id DESC`
         );
     },
@@ -134,6 +135,10 @@ export const RemessaService = {
             updates.push('observacao = ?');
             values.push(remessa.observacao);
         }
+        if (remessa.ativa !== undefined) {
+            updates.push('ativa = ?');
+            values.push(remessa.ativa);
+        }
 
         if (updates.length === 0) return;
 
@@ -141,6 +146,15 @@ export const RemessaService = {
         values.push(id);
 
         await db.runAsync(query, values);
+    },
+
+    async toggleAtiva(id: number): Promise<boolean> {
+        const remessa = await this.getById(id);
+        if (!remessa) throw new Error('Remessa não encontrada');
+        
+        const novoStatus = remessa.ativa === 1 ? 0 : 1;
+        await db.runAsync(`UPDATE remessas SET ativa = ? WHERE id = ?`, [novoStatus, id]);
+        return novoStatus === 1;
     },
 
     async updateProduto(id: number, updates: Partial<Produto>): Promise<void> {
@@ -211,25 +225,7 @@ export const RemessaService = {
     },
 
     async delete(id: number): Promise<void> {
-        // Primeiro, obter IDs das vendas relacionadas aos produtos desta remessa
-        const vendasIds = await db.getAllAsync<{ venda_id: number }>(
-            `SELECT DISTINCT iv.venda_id FROM itens_venda iv
-             INNER JOIN produtos p ON iv.produto_id = p.id
-             WHERE p.remessa_id = ?`,
-            [id]
-        );
-
-        // Deletar itens de venda das vendas relacionadas
-        for (const { venda_id } of vendasIds) {
-            await db.runAsync(`DELETE FROM itens_venda WHERE venda_id = ?`, [venda_id]);
-        }
-
-        // Deletar as vendas
-        for (const { venda_id } of vendasIds) {
-            await db.runAsync(`DELETE FROM vendas WHERE id = ?`, [venda_id]);
-        }
-
-        // Deletar produtos da remessa
+        // Deletar produtos da remessa (itens_venda.produto_id será setado para NULL via ON DELETE SET NULL)
         await db.runAsync(`DELETE FROM produtos WHERE remessa_id = ?`, [id]);
 
         // Deletar a remessa

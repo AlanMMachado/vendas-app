@@ -2,6 +2,8 @@ export interface ItemVenda {
     id: number;
     venda_id: number;
     produto_id: number;
+    produto_tipo?: string;
+    produto_sabor?: string;
     quantidade: number;
     preco_base: number;
     preco_desconto?: number;

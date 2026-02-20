@@ -147,13 +147,18 @@ export default function NovaVendaScreen() {
         data: new Date().toISOString(),
         status: formData.status,
         metodo_pagamento: formData.metodo_pagamento,
-        itens: itensValidos.map(item => ({
-          produto_id: parseInt(item.produto_id),
-          quantidade: parseInt(item.quantidade),
-          preco_base: parseFloat(item.preco_base),
-          preco_desconto: item.preco_desconto ? parseFloat(item.preco_desconto) : undefined,
-          subtotal: parseFloat(item.subtotal)
-        }))
+        itens: itensValidos.map(item => {
+          const produto = produtos.find(p => p.id.toString() === item.produto_id);
+          return {
+            produto_id: parseInt(item.produto_id),
+            produto_tipo: produto?.tipo,
+            produto_sabor: produto?.sabor,
+            quantidade: parseInt(item.quantidade),
+            preco_base: parseFloat(item.preco_base),
+            preco_desconto: item.preco_desconto ? parseFloat(item.preco_desconto) : undefined,
+            subtotal: parseFloat(item.subtotal)
+          };
+        })
       };
 
       const venda = await VendaService.create(vendaData);

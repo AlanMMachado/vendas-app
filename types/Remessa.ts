@@ -16,6 +16,7 @@ export interface Remessa {
     id: number;
     data: string;
     observacao?: string;
+    ativa: number; // 1 = ativa, 0 = inativa
     created_at?: string;
     produtos?: Produto[];
 }

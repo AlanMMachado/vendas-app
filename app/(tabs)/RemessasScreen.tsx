@@ -7,7 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
-import { Edit, Trash2 } from 'lucide-react-native';
+import { Edit, Power, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
@@ -55,6 +55,15 @@ export default function RemessasScreen() {
         setDeleteModalVisible(false);
         setSelectedRemessaId(null);
       }
+    }
+  };
+
+  const handleToggleAtiva = async (remessaId: number) => {
+    try {
+      await RemessaService.toggleAtiva(remessaId);
+      await carregarRemessas();
+    } catch (error) {
+      console.error('Erro ao alterar status da remessa:', error);
     }
   };
 
@@ -136,10 +145,24 @@ export default function RemessasScreen() {
                       {formatDate(remessa.data)}
                     </Text>
                   </View>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>
-                      {remessa.produtos ? remessa.produtos.length : 0} produtos
-                    </Text>
+                  <View style={styles.headerBadges}>
+                    <View style={[
+                      styles.ativaBadge,
+                      { backgroundColor: remessa.ativa === 1 ? '#dcfce7' : '#fee2e2',
+                        borderColor: remessa.ativa === 1 ? '#16a34a' : '#dc2626' }
+                    ]}>
+                      <Text style={[
+                        styles.ativaText,
+                        { color: remessa.ativa === 1 ? '#16a34a' : '#dc2626' }
+                      ]}>
+                        {remessa.ativa === 1 ? 'Ativa' : 'Inativa'}
+                      </Text>
+                    </View>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>
+                        {remessa.produtos ? remessa.produtos.length : 0} produtos
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -188,6 +211,15 @@ export default function RemessasScreen() {
                   <Text style={styles.verDetalhes}>Ver detalhes →</Text>
                   <View style={styles.cardActions}>
                     <TouchableOpacity 
+                      style={[
+                        styles.toggleCardButton,
+                        { borderColor: remessa.ativa === 1 ? '#16a34a' : '#dc2626' }
+                      ]} 
+                      onPress={() => handleToggleAtiva(remessa.id)}
+                    >
+                      <Power size={16} color={remessa.ativa === 1 ? '#16a34a' : '#dc2626'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
                       style={styles.editCardButton} 
                       onPress={() => router.push(`/remessas/EditarRemessaScreen?id=${remessa.id}`)}
                     >
@@ -221,7 +253,7 @@ export default function RemessasScreen() {
       <ConfirmationModal
         visible={deleteModalVisible}
         title="Excluir Remessa"
-        message="Tem certeza que deseja excluir esta remessa? Esta ação não pode ser desfeita."
+        message="Tem certeza que deseja excluir esta remessa? Os produtos serão removidos, mas o histórico de vendas será preservado."
         onConfirm={handleDelete}
         onCancel={() => {
           setDeleteModalVisible(false);
@@ -326,6 +358,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.mediumBlue,
   },
+  headerBadges: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  ativaBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  ativaText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   observacaoContainer: {
     backgroundColor: COLORS.softGray,
     padding: 12,
@@ -423,6 +470,15 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     gap: 8,
+  },
+  toggleCardButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.softGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   editCardButton: {
     width: 32,

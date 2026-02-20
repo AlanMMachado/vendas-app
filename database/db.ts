@@ -3,8 +3,8 @@ import * as SQLite from 'expo-sqlite';
 export const db = SQLite.openDatabaseSync('trufas.db');
 
 // Criação das tabelas
-export function initDatabase() {
-    db.execAsync(`
+export async function initDatabase() {
+    await db.execAsync(`
         CREATE TABLE IF NOT EXISTS produto_config (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo TEXT NOT NULL,
@@ -21,6 +21,7 @@ export function initDatabase() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             data TEXT NOT NULL,
             observacao TEXT,
+            ativa INTEGER NOT NULL DEFAULT 1,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -68,14 +69,16 @@ export function initDatabase() {
         CREATE TABLE IF NOT EXISTS itens_venda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             venda_id INTEGER NOT NULL,
-            produto_id INTEGER NOT NULL,
+            produto_id INTEGER,
+            produto_tipo TEXT,
+            produto_sabor TEXT,
             quantidade INTEGER NOT NULL,
             preco_base REAL NOT NULL,
             preco_desconto REAL DEFAULT NULL,
             subtotal REAL NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
-            FOREIGN KEY(produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+            FOREIGN KEY(produto_id) REFERENCES produtos(id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS configuracoes (
@@ -87,4 +90,44 @@ export function initDatabase() {
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
     `);
+
+    // Migrations para bancos existentes
+    await migrateDatabase();
+}
+
+async function migrateDatabase() {
+    // Adicionar coluna 'ativa' na tabela remessas (se não existir)
+    try {
+        const remessaCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(remessas)`);
+        if (!remessaCols.find(c => c.name === 'ativa')) {
+            await db.execAsync(`ALTER TABLE remessas ADD COLUMN ativa INTEGER NOT NULL DEFAULT 1`);
+        }
+    } catch (e) {
+        console.error('Migration remessas.ativa:', e);
+    }
+
+    // Adicionar colunas de produto nas itens_venda (se não existirem)
+    try {
+        const itensCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(itens_venda)`);
+        if (!itensCols.find(c => c.name === 'produto_tipo')) {
+            await db.execAsync(`ALTER TABLE itens_venda ADD COLUMN produto_tipo TEXT`);
+        }
+        if (!itensCols.find(c => c.name === 'produto_sabor')) {
+            await db.execAsync(`ALTER TABLE itens_venda ADD COLUMN produto_sabor TEXT`);
+        }
+    } catch (e) {
+        console.error('Migration itens_venda produto info:', e);
+    }
+
+    // Preencher produto_tipo e produto_sabor para itens existentes
+    try {
+        await db.execAsync(`
+            UPDATE itens_venda SET 
+                produto_tipo = (SELECT p.tipo FROM produtos p WHERE p.id = itens_venda.produto_id),
+                produto_sabor = (SELECT p.sabor FROM produtos p WHERE p.id = itens_venda.produto_id)
+            WHERE produto_tipo IS NULL AND produto_id IS NOT NULL
+        `);
+    } catch (e) {
+        console.error('Migration backfill itens_venda:', e);
+    }
 }
