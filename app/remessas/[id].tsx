@@ -26,6 +26,7 @@ export default function DetalhesRemessaScreen() {
   const [deleteVendaModalVisible, setDeleteVendaModalVisible] = useState(false);
   const [vendaToDelete, setVendaToDelete] = useState<Venda | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [itemsShown, setItemsShown] = useState(10);
 
   useFocusEffect(
     useCallback(() => {
@@ -314,7 +315,7 @@ export default function DetalhesRemessaScreen() {
             </View>
 
             {/* Lista de Vendas */}
-            {vendas.slice(0, 10).map((venda) => (
+            {vendas.slice(0, itemsShown).map((venda) => (
               <VendaCard
                 key={venda.id}
                 venda={venda}
@@ -328,10 +329,16 @@ export default function DetalhesRemessaScreen() {
                 }}
               />
             ))}
-            {vendas.length > 10 && (
-              <Text style={styles.maisVendas}>
-                ... e mais {vendas.length - 10} vendas
-              </Text>
+            
+            {itemsShown < vendas.length && (
+              <TouchableOpacity 
+                style={styles.carregarMaisButton}
+                onPress={() => setItemsShown(itemsShown + 10)}
+              >
+                <Text style={styles.carregarMaisText}>
+                  Carregar + ({itemsShown} de {vendas.length})
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -581,6 +588,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  carregarMaisButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.mediumBlue,
+    alignItems: 'center',
+  },
+  carregarMaisText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.mediumBlue,
   },
   novaVendaButton: {
     backgroundColor: COLORS.mediumBlue,
