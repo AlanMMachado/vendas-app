@@ -43,15 +43,20 @@ export default function EditarVendaScreen() {
       }
       setVenda(vendaData);
 
+      // Obter IDs dos produtos que estão sendo editados
+      const produtosEmEdicao = new Set(vendaData.itens.map(item => item.produto_id));
+
       // Carregar produtos disponíveis
       const remessasAtivas = await RemessaService.getAtivas();
       const todosProdutos: Produto[] = [];
 
       for (const remessa of remessasAtivas) {
         const produtosRemessa = await RemessaService.getProdutosByRemessaId(remessa.id);
-        const produtosDisponiveis = produtosRemessa.filter(p =>
-          p.quantidade_inicial - p.quantidade_vendida > 0
-        );
+        const produtosDisponiveis = produtosRemessa.filter(p => {
+          const temEstoque = p.quantidade_inicial - p.quantidade_vendida > 0;
+          const estaEmEdicao = produtosEmEdicao.has(p.id);
+          return temEstoque || estaEmEdicao; // Incluir se tem estoque OU se está sendo editado
+        });
         todosProdutos.push(...produtosDisponiveis);
       }
 
