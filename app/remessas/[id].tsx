@@ -2,8 +2,8 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Header from '@/components/Header';
 import VendaCard from '@/components/VendaCard';
 import { COLORS } from '@/constants/Colors';
+import { ClienteService } from '@/service/clienteService';
 import { RemessaService } from '@/service/remessaService';
-import { SyncService } from '@/service/syncService';
 import { VendaService } from '@/service/vendaService';
 import { Remessa } from '@/types/Remessa';
 import { Venda } from '@/types/Venda';
@@ -86,10 +86,12 @@ export default function DetalhesRemessaScreen() {
       
       await VendaService.delete(vendaToDelete.id);
       
-      // Sincronizar cliente após deletar venda
+      // Recalcular totais do cliente após deletar venda
       if (nomeCliente) {
-        const vendaTemp = { ...vendaToDelete, id: vendaToDelete.id };
-        await SyncService.syncClienteFromVenda(vendaTemp);
+        const cliente = await ClienteService.getByNome(nomeCliente);
+        if (cliente) {
+          await ClienteService.recalcularTotais(cliente.id);
+        }
       }
       
       // Recarregar dados
