@@ -1,6 +1,6 @@
-# Vendas App - Gerenciamento de Vendas
+# Doce Sonho - Aplicatiov para Gerenciamento de Vendas
 
-Aplicativo mobile para gerenciamento de vendas de trufas e sobremesas em ambiente de rua, desenvolvido com React Native e Expo.
+Aplicativo mobile para gerenciamento de vendas de trufas e sobremesas, desenvolvido com React Native e Expo.
 
 ## Funcionalidades
 
